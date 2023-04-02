@@ -17,7 +17,7 @@ Whisperを使用する方法は以下の２つです。
 
 Whisperをローカルで使用するためには、Python、PyTorch、ffmpegのインストールが必要です。Python環境の構築については以下のページを参照してください。
 
-[Pythonのインストール →](/tutorial/python)
+[Pythonのインストール →](/python/install)
 
 ### ffmpegのインストール
 
