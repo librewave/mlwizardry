@@ -15,4 +15,14 @@ MlWizardryへようこそ！本ウェブサイトでは、機械学習 (AI)の�
 
 ## 貢献
 
-本ウェブサイトは、オープンソースで構築されており、誰でもPull Requestで編集し、貢献することができます。
+本ウェブサイトは、オープンソースで構築されており、GitHubで誰でもPull Requestで編集し、貢献することができます。
+
+### コントリビューター
+
+すべてのコントリビューターの皆様に感謝します。
+
+[![](https://contrib.rocks/image?repo=librewave/mlwizardry)](https://github.com/librewave/mlwizardry/graphs/contributors)
+
+## ライセンス
+
+特に明記のない限り、[CC-BY-SA-4.0](https://creativecommons.org/licenses/by-sa/4.0/deed.ja)で使用できます。また、文章内で記載されているコードは[MIT](https://opensource.org/license/mit/)として利用できます。
