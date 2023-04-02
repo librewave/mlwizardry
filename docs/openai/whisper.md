@@ -1,0 +1,185 @@
+---
+sidebar_position: 1
+---
+
+# Whisperで文字起こし
+
+OpenAIがMITライセンスでオープンソースで提供するWhisperを使用すると、多言語の音声ファイルから音声の言語認識、音声区間検出、タイムスタンプの出力が簡単に無料で行える文字起こしツールです。
+
+Whisperを使用する方法は以下の２つです。
+
+- オープンソースのWhisper
+- 有料APIのWhisper
+
+この記事では、ローカル環境でWhisperを使用する方法を解説します。
+
+## 環境の構築
+
+Whisperをローカルで使用するためには、Python、PyTorch、ffmpegのインストールが必要です。Python環境の構築については以下のページを参照してください。
+
+[Pythonのインストール →](/tutorial/python)
+
+### ffmpegのインストール
+
+ffmpegは、オープンソースの動画・音声変換ツールで、Whisperで文字起こしを行う際に必要となります。以下に、主要なOSごとのインストール方法を記載します。
+
+#### Windows
+
+1. [公式ダウンロードページ](https://ffmpeg.org/download.html)からWindows向けのビルドをダウンロードします。"Windows Builds"セクションの下にある [gyan.dev](https://www.gyan.dev/ffmpeg/builds/) または [BtbN](https://github.com/BtbN/FFmpeg-Builds/releases) のリンクからダウンロードできます。
+
+2. ダウンロードしたZIPファイルを解凍し、任意の場所に配置します。
+
+3. 環境変数`PATH`に、解凍したフォルダ内の`bin`ディレクトリへのパスを追加します。詳細な手順は、[こちらのページ](https://www.architectryan.com/2018/03/29/add-to-the-path-on-windows-10/)を参照してください。
+
+#### macOS
+
+1. [Homebrew](https://brew.sh/)がインストールされていない場合は、インストールしてください。
+
+2. ターミナルを開き、以下のコマンドを実行してffmpegをインストールします。
+
+```bash
+brew install ffmpeg
+```
+
+#### Linux (Ubuntu)
+
+1. ターミナルを開き、以下のコマンドを実行してffmpegをインストールします。
+
+```bash
+sudo apt update
+sudo apt install ffmpeg
+```
+
+インストールが完了したら、ターミナルで`ffmpeg -version`コマンドを実行して、バージョン情報が表示されることを確認してください。これで、Whisperとともにffmpegが利用可能になります。
+
+## Whisperの使用
+
+まず、Whisper関連ライブラリをpipでインストールします。
+
+```bash
+pip install git+https://github.com/openai/whisper.git 
+```
+
+では早速使ってみましょう。
+
+ターミナルで以下のように実行できます
+
+```bash
+whisper audio.m4a <オプション>
+```
+
+またPythonスクリプト内でWhisperを使用することもできます。
+
+```py
+import whisper
+
+# モデルを読み込む
+model = whisper.load_model("base")
+
+# 文字起こしを表示する
+result = model.transcribe("audio.m4a",verbose=True)
+```
+
+これが最もシンプルなWhisperを使用する例です。実行する前にaudio.m4aを実行する同じディレクトリに配置してください。
+
+### モデル
+
+Whisperにはサイズが異なる5つの学習済みモデル、「large」「medium」「small」「base」「tiny」の5種類が用意されています。
+
+以下のコードの`base`部分を置き換えて切り替えられます。
+
+```py
+model = whisper.load_model("base")
+```
+
+コマンドラインの場合は以下の中からモデルを選択しオプションとして入力します。
+
+```bash
+--model {tiny.en,tiny,base.en,base,small.en,small,medium.en,medium,large}	
+```
+
+
+### YouTubeの動画をmp3でダウンロードし、Whisperで文字起こしする
+
+試しにYouTubeの動画をダウンロードして、Whisperで文字起こしを行ってみましょう。
+    
+:::caution
+この方法は、YouTubeの利用規約や法に反する可能性があります。クリエイティブ・コモンズなどの動画をダウンロードするようにしてください。また、このコードはあくまで一例であり、動画のダウンロードやWhisperの使い方について、自己責任で行ってください。
+:::
+
+まず、YouTubeやその他の動画共有サイトから動画や音声をダウンロードするためのコマンドラインツールであるyt-dlpをインストールします。
+
+```bash
+pip install yt-dlp
+```
+
+次に、Pythonファイルを作成し、以下のコードを追加してください。このコードは、指定されたYouTubeのURLから音声をダウンロードし、Whisperで文字起こしを行います。動画のURLはyoutube_url変数に設定してください。
+
+```py
+import yt_dlp
+import whisper
+
+# YouTubeの動画URLを設定
+youtube_url = "https://www.youtube.com/watch?v=arj7oStGLkU&t=3s"
+
+# YouTube動画のタイトルとIDを取得
+info = yt_dlp.YoutubeDL().extract_info(url=youtube_url, download=False)
+video_id = info['id']
+
+# 動画をダウンロードし、mp3に変換
+yt_dlp_options = {
+    'format': 'bestaudio/best',
+    'outtmpl': video_id,
+    'postprocessors': [{
+        'key': 'FFmpegExtractAudio',
+        'preferredcodec': 'mp3',
+        'preferredquality': '192',
+    }],
+}
+
+with yt_dlp.YoutubeDL(yt_dlp_options) as ydl:
+    ydl.download([youtube_url])
+
+# baseモデルを読み込む
+model = whisper.load_model("base")
+
+# 文字起こしを行う
+result = model.transcribe(video_id + ".mp3",verbose=True)
+```
+
+これで簡単なYouTubeからの文字起こしスクリプトができました🎉
+
+以下のようにコンソールに表示されたら成功です。
+
+```bash
+[youtube] Extracting URL: https://www.youtube.com/watch?v=arj7oStGLkU 
+[youtube] arj7oStGLkU: Downloading webpage 
+[youtube] arj7oStGLkU: Downloading android player API JSON 
+[youtube] Extracting URL: https://www.youtube.com/watch?v=arj7oStGLkU 
+[youtube] arj7oStGLkU: Downloading webpage 
+[youtube] arj7oStGLkU: Downloading android player API JSON 
+[info] arj7oStGLkU: Downloading 1 format(s): 251 
+[dashsegments] Total fragments: 2 
+[download] Destination: arj7oStGLkU
+[download] 100% of   12.42MiB in 00:00:02 at 5.92MiB/s
+[ExtractAudio] Destination: arj7oStGLkU.mp3 
+Deleting original file arj7oStGLkU (pass -k to keep) 
+Detecting language using up to the first 30 seconds. Use `--language` to specify the language
+Detected language: English
+[00:00.000 --> 00:19.520]  So in college, I was a government major, which means I had to write a lot of papers.
+[00:19.520 --> 00:23.920]  Now when a normal student writes a paper, they might spread the work out a little like this.
+[00:23.920 --> 00:29.560]  So you know, you get started maybe a little slowly, but you get enough done in the first
+[00:29.560 --> 00:33.960]  week that was some heavier days later on. Everything gets done and things taste civil.
+[00:35.800 --> 00:41.800]  And I would want to do that like that. That would be the plan. I would have it all ready to go,
+[00:41.800 --> 00:45.400]  but then that's actually the paper would come along and then I would kind of do this.
+[00:48.600 --> 00:55.400]  And that would happen every single paper. But then came my 90-page senior thesis.   
+[00:55.480 --> 01:00.520]  A paper you're supposed to spend a year on. I knew for a paper like that my normal workflow
+[01:00.520 --> 01:05.560]  was not an option. It was way too big a project. So I planned things out and I decided I kind of
+[01:05.560 --> 01:11.880]  had to go something like this. This is how the year would go. So I'd start off light and I'd bump
+[01:11.880 --> 01:16.680]  it up in the middle months. And then at the end I would kick it up into high gears. Just a little
+[01:16.680 --> 01:24.760]  staircase. How hard can I just walk up the stairs? No big deal, right? But then funniest thing happened.
+```
+
+## Fine Tuning
+
+執筆中
