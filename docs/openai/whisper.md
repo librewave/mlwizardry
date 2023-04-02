@@ -120,7 +120,7 @@ import yt_dlp
 import whisper
 
 # YouTubeの動画URLを設定
-youtube_url = "https://www.youtube.com/watch?v=arj7oStGLkU&t=3s"
+youtube_url = "https://www.youtube.com/watch?v=arj7oStGLkU"
 
 # YouTube動画のタイトルとIDを取得
 info = yt_dlp.YoutubeDL().extract_info(url=youtube_url, download=False)
