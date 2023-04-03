@@ -13,13 +13,9 @@ MlWizardryへようこそ！本ウェブサイトでは、機械学習 (AI)の�
 
 [Pythonを学ぶ →](/category/python)
 
-## 貢献
+## コントリビューター
 
-本ウェブサイトは、オープンソースで構築されており、GitHubで誰でもPull Requestで編集し、貢献できます。
-
-### コントリビューター
-
-すべてのコントリビューターの皆様に感謝します。
+すべてのコントリビューターの皆様に感謝します。コントリビューションに興味をお持ちであれば、[contributing.md](/contributing)をチェックしてください。
 
 [![](https://contrib.rocks/image?repo=librewave/mlwizardry)](https://github.com/librewave/mlwizardry/graphs/contributors)
 
