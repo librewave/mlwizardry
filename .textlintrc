@@ -1,0 +1,11 @@
+{
+  "plugins": {},
+  "filters": {
+    "comments": true
+  },
+  "rules": {
+    "preset-ja-technical-writing": {
+      "no-exclamation-question-mark": false
+    }
+  }
+}

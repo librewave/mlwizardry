@@ -62,6 +62,14 @@ const config = {
     ({
       // Replace with your project's social card
       image: 'img/docusaurus-social-card.jpg',
+      announcementBar: {
+        id: 'cookie',
+        content:
+          '当サイトでは、利便性向上を目的とし、Cookieを使用しています。<a href="/cookie">詳細をご覧</a>ください。',
+        backgroundColor: 'rgb(65, 146, 217)',
+        textColor: 'white',
+        isCloseable: true,
+      },      
       navbar: {
         title: 'MlWizardry',
         logo: {
