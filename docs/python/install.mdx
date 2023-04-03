@@ -2,6 +2,9 @@
 sidebar_position: 1
 ---
 
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
 # Python環境の構築
 
 ## Pythonとは
@@ -12,23 +15,32 @@ Pythonは、AI開発に必要な機械学習ライブラリやフレームワー
 
 ## Pythonのインストール
 
-### Windows
+<Tabs
+    defaultValue="windows"
+    values={[
+        {label: 'Windows', value: 'windows'},
+        {label: 'macOS', value: 'macos'},
+        {label: 'Linux', value: 'linux'},
+    ]}>
+<TabItem value="windows">
 
 1. Python公式サイトにアクセス: [https://www.python.org/](https://www.python.org/)
-2. 「Downloads」メニューから「Windows」を選択します。
-3. ダウンロードページから、最新のPythonインストーラーをダウンロードします。通常、ページ内に表示されている最新バージョンのインストーラーをダウンロードすることが推奨されます。
-4. インストーラーを実行し、画面の指示に従ってインストールを進めます。**「Add Python to PATH」のオプションにチェックを入れることを忘れずに**、これによりPythonがシステムの環境変数に追加されます。
-5. インストールが完了したら、コマンドプロンプトを開き、`python --version`コマンドを入力してインストールが成功したことを確認します。
+1. 「Downloads」メニューから「Windows」を選択します。
+1. ダウンロードページから、最新のPythonインストーラーをダウンロードします。通常、ページ内に表示されている最新バージョンのインストーラーをダウンロードすることが推奨されます。
+1. インストーラーを実行し、画面の指示に従ってインストールを進めます。**「Add Python to PATH」のオプションにチェックを入れることを忘れずに**、これによりPythonがシステムの環境変数に追加されます。
+1. インストールが完了したら、コマンドプロンプトを開き、`python --version`コマンドを入力してインストールが成功したことを確認します。
 
-### macOS
+</TabItem>
+<TabItem value="macos">
 
 1. Python公式サイトにアクセス: [https://www.python.org/](https://www.python.org/)
-2. 「Downloads」メニューから「macOS」を選択します。
-3. ダウンロードページから、最新のPythonインストーラーをダウンロードします。通常、ページ内に表示されている最新バージョンのインストーラーをダウンロードすることが推奨されます。
-4. ダウンロードしたインストーラーを実行し、画面の指示に従ってインストールを進めます。
-5. インストールが完了したら、ターミナルを開き、`python3 --version`コマンドを入力してインストールが成功したことを確認します。
+1. 「Downloads」メニューから「macOS」を選択します。
+1. ダウンロードページから、最新のPythonインストーラーをダウンロードします。通常、ページ内に表示されている最新バージョンのインストーラーをダウンロードすることが推奨されます。
+1. ダウンロードしたインストーラーを実行し、画面の指示に従ってインストールを進めます。
+1. インストールが完了したら、ターミナルを開き、`python3 --version`コマンドを入力してインストールが成功したことを確認します。
 
-### Linux
+</TabItem>
+<TabItem value="linux">
 
 Linuxディストリビューションによってインストール方法が異なりますが、ここではUbuntuを例に説明します。
 
@@ -47,5 +59,8 @@ sudo apt install python3
 ```
 
 4. インストールが完了したら、`python3 --version`コマンドを入力してインストールが成功したことを確認します。
+
+</TabItem>
+</Tabs>
 
 以上で、Pythonのインストールが完了です。これであなたのマシンにPython環境が構築されました。次のステップとして、Pythonの基本的な構文を学んでみましょう。
