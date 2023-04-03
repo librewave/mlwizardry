@@ -31,13 +31,13 @@ y = ax + b
 
 まず、`numpy`と`sklearn`をインストールしましょう。以下のコマンドを実行して、必要なパッケージをインストールします。
 
-```py
+```bash
 pip install numpy scikit-learn
 ```
 
 以下のPythonコードは、上記の身長と体重のデータを使って線形回帰を行う例です。
 
-```python
+```py
 import numpy as np
 from sklearn.linear_model import LinearRegression
 
