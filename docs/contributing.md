@@ -14,7 +14,7 @@ sidebar_position: 2
 git clone https://github.com/librewave/mlwizardry.git
 ```
 
-次に、依存関係をインストールします。Node.js、Pythonのインストールは事前に行ってください。仮想環境で行うのおすすめです。
+次に、依存関係をインストールします。Node.js、Pythonのインストールは事前に行ってください。仮想環境で行うのもおすすめです。
 
 ```bash
 pip install -r requirements.txt

@@ -6,6 +6,6 @@
 
 ## コントリビューター
 
-すべてのコントリビューターの皆様に感謝します。コントリビューションに興味をお持ちであれば、[contributing.md](/contributing)をチェックしてください。
+すべてのコントリビューターの皆様に感謝します。コントリビューションに興味をお持ちであれば、[contributing.md](https://mlwizardry.netlify.app/contributing)をチェックしてください。
 
 [![](https://contrib.rocks/image?repo=librewave/mlwizardry)](https://github.com/librewave/mlwizardry/graphs/contributors)
