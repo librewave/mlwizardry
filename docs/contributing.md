@@ -11,7 +11,7 @@ sidebar_position: 2
 まず、GitHubからリポジトリをクローンします。
 
 ```bash
-https://github.com/librewave/mlwizardry.git
+git clone https://github.com/librewave/mlwizardry.git
 ```
 
 次に、依存関係をインストールします。Node.js、Pythonのインストールは事前に行ってください。仮想環境で行うのおすすめです。
