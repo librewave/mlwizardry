@@ -5,6 +5,8 @@ slug: /
 
 # はじめに
 
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/librewave/mlwizardry/blob/main/)
+
 MlWizardryへようこそ！本ウェブサイトでは、機械学習 (AI)の基礎から学べる教材を無料で提供することを目指しています。
 
 ## 機械学習を最初から学ぶ
