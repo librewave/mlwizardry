@@ -3,6 +3,7 @@
 
 const lightCodeTheme = require('prism-react-renderer/themes/github');
 const darkCodeTheme = require('prism-react-renderer/themes/dracula');
+require('dotenv').config();
 
 /** @type {import('@docusaurus/types').Config} */
 const config = {
@@ -69,7 +70,12 @@ const config = {
         backgroundColor: 'rgb(65, 146, 217)',
         textColor: 'white',
         isCloseable: true,
-      },      
+      },
+      algolia: {
+        appId: process.env.ALGOLIA_APP_ID,
+        apiKey:  process.env.ALGOLIA_API_KEY,
+        indexName: "mlwizardry"
+      },
       navbar: {
         title: 'MlWizardry',
         logo: {
