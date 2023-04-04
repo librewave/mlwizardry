@@ -1,41 +1,11 @@
-# Website
+# mlwizardry
 
-This website is built using [Docusaurus 2](https://docusaurus.io/), a modern static website generator.
+[![Netlify Status](https://api.netlify.com/api/v1/badges/7b04b7bb-de77-46d3-bc76-5606a39af3c8/deploy-status)](https://app.netlify.com/sites/mlwizardry/deploys)
 
-### Installation
+機械学習 (AI)の基礎から学べる教材を無料で提供することを目的としたウェブサイトです。
 
-```
-$ yarn
-```
+## コントリビューター
 
-### Local Development
+すべてのコントリビューターの皆様に感謝します。コントリビューションに興味をお持ちであれば、[contributing.md](/contributing)をチェックしてください。
 
-```
-$ yarn start
-```
-
-This command starts a local development server and opens up a browser window. Most changes are reflected live without having to restart the server.
-
-### Build
-
-```
-$ yarn build
-```
-
-This command generates static content into the `build` directory and can be served using any static contents hosting service.
-
-### Deployment
-
-Using SSH:
-
-```
-$ USE_SSH=true yarn deploy
-```
-
-Not using SSH:
-
-```
-$ GIT_USER=<Your GitHub username> yarn deploy
-```
-
-If you are using GitHub pages for hosting, this command is a convenient way to build the website and push to the `gh-pages` branch.
+[![](https://contrib.rocks/image?repo=librewave/mlwizardry)](https://github.com/librewave/mlwizardry/graphs/contributors)
