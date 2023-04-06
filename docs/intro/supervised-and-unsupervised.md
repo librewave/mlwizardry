@@ -1,6 +1,6 @@
 ---
 sidebar_position: 1
-image: /ml/supervised.jpg
+image: /intro/supervised.jpg
 ---
 
 # 教師あり学習と教師なし学習
@@ -13,7 +13,7 @@ image: /ml/supervised.jpg
 
 ### 例: 家の価格予測
 
-![/ml/supervised.jpg](/intro/supervised.jpg)
+![/intro/supervised.jpg](/intro/supervised.jpg)
 
 教師あり学習の具体的な例として、家の価格を予測する問題を考えましょう。家の広さ（平方メートル）や築年数などの特徴データと、それに対応する家の価格（ラベル）が与えられているとします。このデータを使って、家の価格を予測するモデルを学習させます。学習が終わった後、新しい家の特徴データ（広さや築年数など）が与えられたときに、その家の価格を予測できるようになります。
 
