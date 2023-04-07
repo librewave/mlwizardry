@@ -30,7 +30,7 @@ yarn start
 
 ## 作成・編集
 
-大きなPull Requestなどを送信する場合は、[GitHub Issues](https://github.com/librewave/mlwizardry/issues)で議論することをおすすめします。
+大きなPull Requestなどを送信する場合は、[GitHub Issues](https://github.com/librewave/mlwizardry/issues)で議論することをおすすめします。また、[Discordサーバー](https://discord.gg/kU4VJGNdwX)でディスカッションを行うこともおすすめします。
 
 今後追加予定のコンテンツなどを[Github Projects](https://github.com/orgs/librewave/projects/1)で管理しています。不足しているコンテンツの作成、編集をお気軽に行ってください。
 
