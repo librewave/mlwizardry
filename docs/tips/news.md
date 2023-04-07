@@ -28,3 +28,8 @@ sidebar_position: 1
 - [Hugging Face](https://huggingface.co/)：自然言語処理に関連したライブラリの開発や人工知能のコミュニティを運営しているウェブサイト。
 - [r/MachineLearning](https://www.reddit.com/r/MachineLearning/)：機械学習に関するディスカッションや最新情報が集まるRedditのコミュニティ
 - [r/deeplearning](https://www.reddit.com/r/deeplearning/)：ディープラーニングに関するディスカッションや
+
+---
+
+MlWizardryの[Discordサーバー](https://discord.gg/kU4VJGNdwX)には、情報交換やニュースフィードなどのスペースもあります。興味がある方は、是非ご参加ください。
+
