@@ -25,10 +25,11 @@ sidebar_position: 1
 
 ## コミュニティ・フォーラム
 
-- [Hugging Face](https://huggingface.co/)：自然言語処理に関連したライブラリの開発や人工知能のコミュニティを運営しているウェブサイト。
+- [Hugging Face](https://huggingface.co/)：自然言語処理に関連したライブラリの開発や人工知能のコミュニティ
 - [r/MachineLearning](https://www.reddit.com/r/MachineLearning/)：機械学習に関するディスカッションや最新情報が集まるRedditのコミュニティ
 - [r/deeplearning](https://www.reddit.com/r/deeplearning/)：ディープラーニングに関するディスカッションや最新情報が集まるRedditのコミュニティ
 - [AI Stack Exchange](https://ai.stackexchange.com/)：機械学習やディープラーニングに関する質問と回答が集まるStack Exchangeのコミュニティ
+- [Prompt Engineering Guide](https://www.promptingguide.ai/jp)：プロンプトエンジニアリングを学ぶためのウェブサイト
 
 ## 学会・カンファレンス
 
