@@ -146,6 +146,14 @@
   flex-shrink: 0;
 }
 
+[data-theme='dark'] .rlc-container {
+  color: #fff;
+}
+
+[data-theme='dark'] .rlc-container:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
 @media only screen and (max-width: 480px) {
   .rlc-image-container {
     width: 120px;
