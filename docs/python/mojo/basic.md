@@ -1,6 +1,6 @@
 # Mojo とは
 
-Mojo とは、`Modular` 社が開発した Python をベースにした AI、機械学習に特化した新しいプログラミング言語です。Python に比べて 35000 倍速いと Modular は主張しています。
+Mojo とは、**Modular** 社が開発した Python をベースにした AI、機械学習に特化した新しいプログラミング言語です。Python に比べて 35000 倍速いと Modular は主張しています。
 
 https://www.modular.com/mojo
 
