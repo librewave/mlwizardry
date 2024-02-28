@@ -1,0 +1,1245 @@
+# 60 行の NumPy で学ぶ GPT
+
+:::info
+この記事は、「[GPT in 60 Lines of NumPy](https://jaykmody.com/blog/gpt-from-scratch/)」を日本語に翻訳したものです。翻訳を許可していただいた Jay Mody 氏に感謝します。この記事は CC ライセンスに含まれません。
+:::
+
+## イントロダクション
+
+この記事では、わずか[60 行の`numpy`](https://github.com/jaymody/picoGPT/blob/29e78cc52b58ed2c1c483ffea2eb46ff6bdec785/gpt2_pico.py#L3-L58)で GPT をゼロから実装します。その後、OpenAI が公開したトレーニング済みの GPT-2 モデルの重みを読み込み、テキストを生成します。
+
+**注意:**
+
+- この記事では、Python、NumPy、およびニューラルネットワークの基本的なトレーニング経験についての理解を前提としています
+- この実装は、完全であることを保ちつつ、できるだけシンプルにするために、意図的に多くの機能が欠けています。目標は、**教育ツールとして GPT のシンプルかつ完全な技術入門**を提供することです
+- GPT アーキテクチャは、現在の LLM（Large Language Models、大規模言語モデル）を形成する要素のほんの一部に過ぎません [^1]
+- この記事のすべてのコードは、[github.com/jaymody/picoGPT](https://github.com/jaymody/picoGPT)で確認することができます
+
+- [Hacker News のスレッド](https://news.ycombinator.com/item?id=34726115)
+- [中国語版](https://jiqihumanr.github.io/2023/04/13/gpt-from-scratch/)
+
+**編集（2023 年 2 月 9 日）：** 「次はなんですか？」セクションを追加し、イントロにいくつかのノートを追加しました。
+
+**編集（2023 年 2 月 28 日）：** 「次はなんですか？」にいくつかの追加セクションを追加しました。
+
+## GPT とはなんですか？
+
+GPT は**G**enerative **P**re-trained **T**ransformer の略です。これは、[Transformer](https://arxiv.org/pdf/1706.03762.pdf)に基づく一種のニューラルネットワークアーキテクチャです。Jay Alammar 氏の[How GPT3 Works](https://jalammar.github.io/how-gpt3-works-visualizations-animations/)は、GPT についての優れた高レベルの紹介ですが、以下に要約します。
+
+- **Generative**: GPT はテキストを生成します
+- **Pre-trained**: GPT は、書籍やインターネットなどの大量のテキストでトレーニングされます
+- **Transformer**: GPT はデコーダーのみの*transformer*ニューラルネットワークです
+
+[OpenAI の GPT-3](https://ja.wikipedia.org/wiki/GPT-3)、[Google の LaMDA](https://blog.google/technology/ai/lamda/)、および[Cohere の Command XLarge](https://docs.cohere.ai/docs/command-beta)などの大規模言語モデル（LLM）は、本質的には GPT です。それらが特別なのは、**1)**非常に大きい（数十億のパラメータ）ことと、**2)**多くのデータ（数百ギガバイトのテキスト）で訓練されていることです。
+
+基本的に、GPT は**プロンプト**を与えられた場合に**テキストを生成**します。この非常にシンプルな API（入力=テキスト、出力=テキスト）でも、訓練が十分に行われた GPT は、[あなたのメールを書く](https://machinelearningknowledge.ai/ezoimgfmt/b2611031.smushcdn.com/2611031/wp-content/uploads/2022/12/ChatGPT-Demo-of-Drafting-an-Email.png?lossy=0&strip=1&webp=1&ezimgfmt=ng:webp/ngcb1)、[本を要約する](https://machinelearningknowledge.ai/ezoimgfmt/b2611031.smushcdn.com/2611031/wp-content/uploads/2022/12/ChatGPT-Example-Book-Summarization.png?lossy=0&strip=1&webp=1&ezimgfmt=ng:webp/ngcb1)、[Instagram のキャプションのアイデアを提供する](https://khrisdigital.com/wp-content/uploads/2022/12/image-1.png)、[5 歳の子供にブラックホールを説明する](https://machinelearningknowledge.ai/ezoimgfmt/b2611031.smushcdn.com/2611031/wp-content/uploads/2022/12/ChatGPT-Examples-Explaining-Black-Holes.png?lossy=0&strip=1&webp=1&ezimgfmt=ng:webp/ngcb1)、[SQL でコードを書く](https://machinelearningknowledge.ai/ezoimgfmt/b2611031.smushcdn.com/2611031/wp-content/uploads/2022/12/ChatGPT-Demo-of-Writing-SQL-Queries.png?lossy=0&strip=1&webp=1&ezimgfmt=ng:webp/ngcb1)、[遺言書を作成する](https://machinelearningknowledge.ai/ezoimgfmt/b2611031.smushcdn.com/2611031/wp-content/uploads/2022/12/Chat-GPT-Example-Writing-a-Will.png?lossy=0&strip=1&webp=1&ezimgfmt=ng:webp/ngcb1)など、素晴らしいことができます。
+
+以上が GPT の概要とその機能の高レベルな概要です。さらに詳細に掘り下げてみましょう。
+
+### 入力 / 出力
+
+GPT の関数シグネチャはおおよそ以下のようになります:
+
+```py
+def gpt(inputs: list[int]) -> list[list[float]]:
+    # inputs は [n_seq] の形状を持つ
+    # 出力は [n_seq, n_vocab] の形状を持つ
+    output = # beep boop neural networkの魔法
+    return output
+```
+
+#### 入力
+
+入力は、テキストを表す**整数のシーケンス**であり、テキスト内の**トークン**にマップされます：
+
+```py
+# 整数はテキスト内のトークンを表します。例えば：
+# テキスト   = "not all heroes wear capes":
+# トークン = "not"  "all" "heroes" "wear" "capes"
+inputs =   [1,     0,    2,      4,     6]
+```
+
+トークンはテキストのサブピースであり、ある種のトークナイザーを使用して生成されます。語彙（ボキャブラリー）を使用してトークンを整数にマッピングすることができます：
+
+```py
+# トークンの語彙内でのインデックスは、そのトークンの整数IDを表します
+# 例えば、"heroes"の整数IDは2です。なぜならvocab[2] = "heroes"だからです
+vocab = ["all", "not", "heroes", "the", "wear", ".", "capes"]
+
+# 空白でトークナイズする架空のトークナイザー
+tokenizer = WhitespaceTokenizer(vocab)
+
+# encode()メソッドは文字列をlist[int]に変換します
+ids = tokenizer.encode("not all heroes wear") # ids = [1, 0, 2, 4]
+
+# 語彙マッピングを通じて実際のトークンを確認できます
+tokens = [tokenizer.vocab[i] for i in ids] # tokens = ["not", "all", "heroes", "wear"]
+
+# decode()メソッドはlist[int]を文字列に戻します
+text = tokenizer.decode(ids) # text = "not all heroes wear"
+```
+
+要約すると：
+
+- 文字列があります
+- トークナイザーを使用して、それを「トークン」と呼ばれる小さな部分に分解します
+- これらのトークンを整数にマッピングするために語彙（ボキャブラリー）を使用します
+
+実際には、単純に空白で分割するよりも、[Byte-Pair Encoding](https://huggingface.co/course/chapter6/5?fw=pt)や[WordPiece](https://huggingface.co/course/chapter6/6?fw=pt)のような、より高度なトークナイズ方法を使用しますが、原理は同じです：
+
+1. 文字列トークンを整数インデックスにマッピングする`vocab`があります
+2. `str -> list[int]`に変換する`encode`メソッドがあります
+3. `list[int] -> str` に変換する`decode`メソッドがあります [^2]
+
+#### 出力
+
+出力は 2 次元配列であり、`output[i][j]`はモデルが `vocab[j]`のトークンが次のトークン `inputs[i+1]`であると予測した確率です。例えば：
+
+```py
+vocab = ["all", "not", "heroes", "the", "wear", ".", "capes"]
+inputs = [1, 0, 2, 4] # "not" "all" "heroes" "wear"
+output = gpt(inputs)
+#              ["all", "not", "heroes", "the", "wear", ".", "capes"]
+# output[0] =  [0.75    0.1     0.0       0.15    0.0   0.0    0.0  ]
+# "not"のみが与えられた場合、モデルは最も高い確率で単語"all"を予測します
+
+#              ["all", "not", "heroes", "the", "wear", ".", "capes"]
+# output[1] =  [0.0     0.0      0.8     0.1    0.0    0.0   0.1  ]
+# シーケンス["not", "all"]が与えられた場合、モデルは最も高い確率で単語"heroes"を予測します
+
+#              ["all", "not", "heroes", "the", "wear", ".", "capes"]
+# output[-1] = [0.0     0.0     0.0     0.1     0.0    0.05  0.85  ]
+# 全シーケンス["not", "all", "heroes", "wear"]が与えられた場合、モデルは最も高い確率で単語"capes"を予測します
+```
+
+シーケンス全体に対する次のトークンの予測を得るためには、`output[-1]`の中で最も高い確率を持つトークンを単純に取ります：
+
+```py
+vocab = ["all", "not", "heroes", "the", "wear", ".", "capes"]
+inputs = [1, 0, 2, 4] # "not" "all" "heroes" "wear"
+output = gpt(inputs)
+next_token_id = np.argmax(output[-1]) # next_token_id = 6
+next_token = vocab[next_token_id] # next_token = "capes"
+```
+
+最も高い確率を持つトークンを予測として取ることを、[貪欲デコーディング](https://docs.cohere.ai/docs/controlling-generation-with-top-k-top-p#1-pick-the-top-token-greedy-decoding)または貪欲サンプリングと呼びます。
+
+シーケンスで次の論理的な単語を予測するタスクは、言語モデリングと呼ばれます。そのため、GPT を言語モデルと呼ぶことができます。
+
+単一の単語を生成するのは素晴らしいことですが、文全体や段落などはどうなるでしょうか?
+
+### テキストの生成
+
+#### 自己回帰
+
+モデルから次のトークン予測を繰り返し取得することで、完全な文を生成できます。各反復で、予測されたトークンを入力に追加して戻します。
+
+```py
+def generate(inputs, n_tokens_to_generate):
+    for _ in range(n_tokens_to_generate): # 自己回帰的デコードループ
+        output = gpt(inputs) # モデルのフォワードパス
+        next_id = np.argmax(output[-1]) # 貪欲サンプリング
+        inputs.append(int(next_id)) # 予測を入力に追加
+    return inputs[len(inputs) - n_tokens_to_generate :]  # 生成されたIDのみを返す
+
+input_ids = [1, 0] # "not" "all"
+output_ids = generate(input_ids, 3) # output_ids = [2, 4, 6]
+output_tokens = [vocab[i] for i in output_ids] # "heroes" "wear" "capes"
+```
+
+この将来の値を予測し（回帰）、それを入力に追加する（自己）、というプロセスが、GPT を**自己回帰**と表現する理由です。
+
+#### サンプリング
+
+貪欲ではなく、確率分布からサンプリングすることで、生成にいくらかの確率的要素（ランダム性）を導入することができます:
+
+```py
+inputs = [1, 0, 2, 4] # "not" "all" "heroes" "wear"
+output = gpt(inputs)
+np.random.choice(np.arange(vocab_size), p=output[-1]) # capes
+np.random.choice(np.arange(vocab_size), p=output[-1]) # hats
+np.random.choice(np.arange(vocab_size), p=output[-1]) # capes
+np.random.choice(np.arange(vocab_size), p=output[-1]) # capes
+np.random.choice(np.arange(vocab_size), p=output[-1]) # pants
+```
+
+これにより、同じ入力に対して異なる文を生成することができます。サンプリング前に分布を変更する [top-k](https://docs.cohere.ai/docs/controlling-generation-with-top-k-top-p#2-pick-from-amongst-the-top-tokens-top-k)、[top-p](https://docs.cohere.ai/docs/controlling-generation-with-top-k-top-p#3-pick-from-amongst-the-top-tokens-whose-probabilities-add-up-to-15-top-p)、[temperature](https://docs.cohere.ai/docs/temperature) などの技術と組み合わせることで、出力の質は大幅に向上します。これらの技術はまた、異なる生成行動を試すために遊べるいくつかのハイパーパラメーターを導入します（たとえば、temperature を上げると、モデルはよりリスクを冒し、より「創造的」になります）。
+
+### トレーニング
+
+GPT のトレーニングは、**他のニューラルネットワークと同様に**、ある**損失関数**に対する[**勾配降下法**](https://arxiv.org/pdf/1609.04747.pdf)を使用して行います。GPT の場合、**言語モデリングタスクにおける[クロスエントロピー損失](https://arxiv.org/pdf/1609.04747.pdf)を取得**します。
+
+```py
+def lm_loss(inputs: list[int], params) -> float:
+    # ラベルyは単に入力を1つ左にシフトしたものです。
+    #
+    # inputs = [not,     all,   heros,   wear,   capes]
+    #      x = [not,     all,   heroes,  wear]
+    #      y = [all,  heroes,     wear,  capes]
+    #
+    # もちろん、inputs[-1]に対するラベルはありませんので、xから除外します。
+    #
+    # そのため、N個の入力に対して、N - 1個の言語モデリング例のペアがあります。
+    x, y = inputs[:-1], inputs[1:]
+
+    # フォワードパス
+    # 各位置における予測された次のトークンの確率分布
+    output = gpt(x, params)
+
+    # クロスエントロピー損失
+    # 全てのN-1例についての平均を取ります。
+    loss = np.mean(-np.log(output[y]))
+
+    return loss
+
+def train(texts: list[list[str]], params) -> float:
+    for text in texts:
+        inputs = tokenizer.encode(text)
+        loss = lm_loss(inputs, params)
+        gradients = compute_gradients_via_backpropagation(loss, params)
+        params = gradient_descent_update_step(gradients, params)
+    return params
+```
+
+これは大幅に単純化されたトレーニング設定ですが、要点を示しています。`gpt`関数シグネチャに`params`を追加したことに注目してください（簡単にするために前のセクションではこれを省略しました）。トレーニングループの各イテレーション中に：
+
+- 指定された入力テキストの例に対する言語モデリングの損失を計算します
+- 損失は勾配を決定し、逆伝播を通じて勾配を計算します
+- 損失が最小化されるように、勾配を使用してモデルパラメータを更新します（勾配降下法）
+
+明示的にラベル付けされたデータは使用しないことに注意してください。代わりに、生のテキスト自体から入力/ラベルのペアを生成することができます。これを[自己教師あり学習](https://en.wikipedia.org/wiki/Self-supervised_learning)と呼びます。
+
+自己教師あり学習を使用することで、訓練データを大規模にスケールアップできます。可能な限り多くの生テキストを手に入れてモデルに投入するだけです。例えば、GPT-3 はインターネットと本からの **3000 億トークンのテキストでトレーニング**されました：
+
+![Table 2.2 from GPT-3 paper](/nlp/gpt3-paper.png)
+
+もちろん、これらすべてのデータから学習するには、十分に大きなモデルが必要です。そのため、GPT-3 には **1750 億のパラメータ**があり、訓練にはコンピュートコストとして [100 万ドルから 1000 万ドルの間がかかった](https://twitter.com/eturner303/status/1266264358771757057)と思われます。[^3]
+
+この自己監督学習ステップは、**事前学習**と呼ばれます。なぜなら、事前に学習されたモデルの重みを再利用して、ツイートが有害かどうかを分類するなどの下流タスクでモデルをさらに訓練することができるからです。事前学習モデルは、時には**基盤モデル**とも呼ばれます。
+
+モデルを下流タスクでトレーニングすることは**ファインチューニング**と呼ばれます。なぜなら、モデルの重みは既に言語を理解するために事前トレーニングされており、特定のタスクに対して微調整されるだけだからです。
+
+「一般的なタスクでの事前トレーニング+特定のタスクでのファインチューニング」という戦略は、[転移学習](https://ja.wikipedia.org/wiki/%E8%BB%A2%E7%A7%BB%E5%AD%A6%E7%BF%92)と呼ばれています。
+
+### プロンプト
+
+原則として、元の[GPT](https://s3-us-west-2.amazonaws.com/openai-assets/research-covers/language-unsupervised/language_understanding_paper.pdf)の論文は、Transformer モデルの事前学習の利点についてのみ述べていました。この論文では、117M の GPT を事前学習し、ラベル付きデータセットで微調整することで、さまざまな**NLP**（自然言語処理）タスクで最先端のパフォーマンスを達成できることが示されています。
+
+[GPT-2](https://d4mucfpksywv.cloudfront.net/better-language-models/language_models_are_unsupervised_multitask_learners.pdf)と[GPT-3](https://arxiv.org/abs/2005.14165)の論文が発表されるまで、私たちはデータ量とパラメータ数が十分にある GPT モデルが、微調整なしで任意のタスクを**単独で**実行できることに気付きませんでした。モデルにプロンプトを与え、自己回帰言語モデリングを行うだけで、適切な応答が得られます。これは**インコンテキスト学習** (in-context learning)と呼ばれ、モデルがタスクを実行するためにプロンプトの文脈のみを使用していることを意味します。インコンテキスト学習は、ゼロショット、ワンショット、またはフューショットのいずれかで行うことができます：
+
+![](https://super-translator.inaridiy.workers.dev/assets/image/0f60087b-696b-4975-a812-096f5bfc93f0)
+
+プロンプトに基づいてテキストを生成することは、**条件付き生成**とも呼ばれます。なぜなら、モデルがある入力に*条件付けられた*出力を生成しているからです。
+
+GPT は NLP タスクに限定されません。モデルを好きなものに条件付けることができます。たとえば、会話履歴に基づいて GPT をチャットボット（つまり、[ChatGPT](https://openai.com/blog/chatgpt/)）に変えることができます。また、プロンプトをいくつかの説明と共に前置きすることで、チャットボットを特定の方法で動作させることもできます（つまり、「あなたはチャットボットです。礼儀正しく、完全な文で話し、有害なことを言わないでくださいなど...」）。このようにモデルを条件付けることで、[チャットボットに個性を与える](https://imgur.com/a/AbDFcgk)ことさえできます。ただし、これは堅牢ではなく、[モデルを「脱獄」して不正な動作](https://twitter.com/zswitten/status/1598380220943593472)させることもできます。
+
+それでは、実際の実装に移りましょう。
+
+## セットアップ
+
+このチュートリアルのためのリポジトリをクローンします：
+
+```
+git clone https://github.com/jaymody/picoGPT
+cd picoGPT
+```
+
+次に、依存関係をインストールしましょう：
+
+```
+pip install -r requirements.txt
+```
+
+:::tip
+注意：このコードは`Python 3.9.10`でテストされました。
+:::
+
+各ファイルの簡単な内訳は次のとおりです。
+
+- **`encoder.py`** は、OpenAI の BPE トークナイザーのコードを含んでおり、彼らの[gpt-2 リポジトリ](https://github.com/openai/gpt-2/blob/master/src/encoder.py)から直接取得されています。
+- **`utils.py`** は、GPT-2 モデルの重み、トークナイザー、およびハイパーパラメーターをダウンロードしてロードするためのコードが含まれています。
+- **`gpt2.py`** は、実際の GPT モデルと生成コードを含んでおり、Python スクリプトとして実行できます。
+- **`gpt2_pico.py`** は、`gpt2.py`と同じですが、さらに少ない行数で記述されています。なぜなら、なぜでしょうか。
+
+`gpt2.py`をゼロから再実装することになるので、それを削除して空のファイルとして再作成しましょう：
+
+```bash
+$ rm gpt2.py
+$ touch gpt2.py
+```
+
+出発点として、次のコードを`gpt2.py`に貼り付けてください：
+
+```py
+import numpy as np
+
+
+def gpt2(inputs, wte, wpe, blocks, ln_f, n_head):
+    pass # TODO: これを実装する
+
+
+def generate(inputs, params, n_head, n_tokens_to_generate):
+    from tqdm import tqdm
+
+    for _ in tqdm(range(n_tokens_to_generate), "generating"):  # 自己回帰デコードループ
+        logits = gpt2(inputs, **params, n_head=n_head)  # モデルのフォワードパス
+        next_id = np.argmax(logits[-1])  # 貪欲サンプリング
+        inputs.append(int(next_id))  # 予測を入力に追加
+
+    return inputs[len(inputs) - n_tokens_to_generate :]  # 生成されたidのみを返す
+
+
+def main(prompt: str, n_tokens_to_generate: int = 40, model_size: str = "124M", models_dir: str = "models"):
+    from utils import load_encoder_hparams_and_params
+
+    # 公開されているOpenAI GPT-2ファイルからエンコーダー、hparams、およびparamsを読み込む
+    encoder, hparams, params = load_encoder_hparams_and_params(model_size, models_dir)
+
+    # BPEトークナイザーを使用して入力文字列をエンコードする
+    input_ids = encoder.encode(prompt)
+
+    # モデルの最大シーケンス長を超えないようにする
+    assert len(input_ids) + n_tokens_to_generate < hparams["n_ctx"]
+
+    # 出力idを生成する
+    output_ids = generate(input_ids, params, hparams["n_head"], n_tokens_to_generate)
+
+    # idを文字列にデコードする
+    output_text = encoder.decode(output_ids)
+
+    return output_text
+
+
+if __name__ == "__main__":
+    import fire
+
+    fire.Fire(main)
+```
+
+4 つの各セクションを分解して説明します：
+
+1. `gpt2` 関数は、実際に実装する GPT のコードです。関数のシグネチャには、`inputs` に加えていくつかの追加の要素が含まれていることに気付くでしょう：
+   - `wte`、`wpe`、`blocks`、`ln_f` は、モデルのパラメータです
+   - `n_head` は、順方向のパス中に必要なハイパーパラメータです
+2. `generate` 関数は、前に見た自己回帰デコーディングアルゴリズムです。シンプルさのために、貪欲なサンプリングを使用しています。[`tqdm`](https://www.google.com/search?q=tqdm) は、トークンを一つずつ生成する過程を視覚化するための進捗バーです
+3. `main` 関数は以下の処理を行います：
+4. トークナイザー（`encoder`）、モデルの重み（`params`）、ハイパーパラメータ（`hparams`）をロードします
+5. トークナイザーを使用して入力プロンプトをトークン ID にエンコードします
+6. `generate` 関数を呼び出します
+7. 出力の ID を文字列にデコードします
+8. [`fire.Fire(main)`](https://github.com/google/python-fire) は、ファイルを CLI アプリケーションに変換するだけであり、最終的には `python gpt2.py "some prompt here"` のようにコードを実行できるようにします
+
+`encoder`、`hparams`、`params` を詳しく見るためには、ノートブックや対話型の Python セッションで次のコードを実行してください：
+
+```python
+from utils import load_encoder_hparams_and_params
+encoder, hparams, params = load_encoder_hparams_and_params("124M", "models")
+```
+
+これにより、必要なモデルファイルとトークナイザーファイルが `models/124M` に[ダウンロードされ](https://github.com/jaymody/picoGPT/blob/a750c145ba4d09d5764806a6c78c71ffaff88e64/utils.py#L13-L40)、`encoder`、`hparams`、`params` が[コードにロードされます](https://github.com/jaymody/picoGPT/blob/a750c145ba4d09d5764806a6c78c71ffaff88e64/utils.py#L68-L82)。
+
+### エンコーダー
+
+`encoder`は GPT-2 で使用される BPE トークナイザーです：
+
+```py
+>>> ids = encoder.encode("Not all heroes wear capes.")
+>>> ids
+[3673, 477, 10281, 5806, 1451, 274, 13]
+
+>>> encoder.decode(ids)
+"Not all heroes wear capes."
+```
+
+トークナイザーの語彙（`encoder.decoder`に保存されている）を使用して、実際のトークンがどのように見えるかを確認できます：
+
+```py
+>>> [encoder.decoder[i] for i in ids]
+['Not', 'Ġall', 'Ġheroes', 'Ġwear', 'Ġcap', 'es', '.']
+```
+
+トークンは時には単語であり（例：Not）、時にはその前にスペースがある単語であることもあります（例：Ġall、[Ġ はスペースを表します](https://github.com/karpathy/minGPT/blob/37baab71b9abea1b76ab957409a1cc2fbfba8a26/mingpt/bpe.py#L22-L33)）、時には単語の一部であることもあります（例：capes は Ġcap と es に分割されます）、そして時には句読点であることもあります（例：.）。
+
+BPE の良い点の一つは、任意の文字列をエンコードできることです。語彙にない何かに出会った場合、それを理解できるサブストリングに単純に分解します：
+
+```py
+>>> [encoder.decoder[i] for i in encoder.encode("zjqfl")]
+['z', 'j', 'q', 'fl']
+```
+
+また、語彙のサイズも確認できます：
+
+```py
+>>> len(encoder.decoder)
+50257
+```
+
+語彙や、文字列がどのように分解されるかを決定するバイトペアマージは、トークナイザーをトレーニングすることで得られます。トークナイザーをロードするとき、私たちは既にトレーニングされた語彙とバイトペアマージを、`load_encoder_hparams_and_params`を実行したときにモデルファイルと共にダウンロードされたいくつかのファイルからロードしています。
+
+語彙については`models/124M/encoder.json`を、バイトペアマージについては`models/124M/vocab.bpe`を参照してください。
+
+### ハイパーパラメータ
+
+`hparams`は、モデルのハイパーパラメータを含む辞書です：
+
+```py
+>>> hparams
+{
+"n_vocab": 50257, # 語彙のトークン数
+"n_ctx": 1024, # 入力の最大可能なシーケンス長
+"n_embd": 768, # 埋め込み次元（ネットワークの「幅」を決定する）
+"n_head": 12, # アテンションヘッドの数（n_embdはn_headで割り切れる必要がある）
+"n_layer": 12 # レイヤーの数（ネットワークの「深さ」を決定する）
+}
+```
+
+コードのコメントでこれらのシンボルを使用して、ものの基本的な形状を示します。また、`n_seq`を入力シーケンスの長さを示すために使用します（つまり、`n_seq = len(inputs)`）。
+
+### パラメーター
+
+`params`は、モデルの学習済みの重みを保持するネストされた JSON 辞書です。JSON の葉ノードは NumPy 配列です。`params`を出力するときに、配列をその形状に置き換えると次のようになります：
+
+```py
+>>> import numpy as np
+>>> def shape_tree(d):
+>>>     if isinstance(d, np.ndarray):
+>>>         return list(d.shape)
+>>>     elif isinstance(d, list):
+>>>         return [shape_tree(v) for v in d]
+>>>     elif isinstance(d, dict):
+>>>         return {k: shape_tree(v) for k, v in d.items()}
+>>>     else:
+>>>         ValueError("uh oh")
+>>>
+>>> print(shape_tree(params))
+{
+    "wpe": [1024, 768],
+    "wte": [50257, 768],
+    "ln_f": {"b": [768], "g": [768]},
+    "blocks": [
+        {
+            "attn": {
+                "c_attn": {"b": [2304], "w": [768, 2304]},
+                "c_proj": {"b": [768], "w": [768, 768]},
+            },
+            "ln_1": {"b": [768], "g": [768]},
+            "ln_2": {"b": [768], "g": [768]},
+            "mlp": {
+                "c_fc": {"b": [3072], "w": [768, 3072]},
+                "c_proj": {"b": [768], "w": [3072, 768]},
+            },
+        },
+        ... # n_layersの繰り返し
+    ]
+}
+```
+
+これらは、元の OpenAI TensorFlow チェックポイントからロードされます：
+
+```py
+>>> import tensorflow as tf
+>>> tf_ckpt_path = tf.train.latest_checkpoint("models/124M")
+>>> for name, _ in tf.train.list_variables(tf_ckpt_path):
+>>>     arr = tf.train.load_variable(tf_ckpt_path, name).squeeze()
+>>>     print(f"{name}: {arr.shape}")
+model/h0/attn/c_attn/b: (2304,)
+model/h0/attn/c_attn/w: (768, 2304)
+model/h0/attn/c_proj/b: (768,)
+model/h0/attn/c_proj/w: (768, 768)
+model/h0/ln_1/b: (768,)
+model/h0/ln_1/g: (768,)
+model/h0/ln_2/b: (768,)
+model/h0/ln_2/g: (768,)
+model/h0/mlp/c_fc/b: (3072,)
+model/h0/mlp/c_fc/w: (768, 3072)
+model/h0/mlp/c_proj/b: (768,)
+model/h0/mlp/c_proj/w: (3072, 768)
+model/h1/attn/c_attn/b: (2304,)
+model/h1/attn/c_attn/w: (768, 2304)
+...
+model/h9/mlp/c_proj/b: (768,)
+model/h9/mlp/c_proj/w: (3072, 768)
+model/ln_f/b: (768,)
+model/ln_f/g: (768,)
+model/wpe: (1024, 768)
+model/wte: (50257, 768)
+```
+
+[次のコード](https://github.com/jaymody/picoGPT/blob/29e78cc52b58ed2c1c483ffea2eb46ff6bdec785/utils.py#L43-L65)は、上記の TensorFlow 変数を`params`辞書に変換します。
+
+参考までに、`params`の形状を示すために、数字をそれらが表す`hparams`で置き換えたものを以下に示します：
+
+```py
+{
+    "wpe": [n_ctx, n_embd],
+    "wte": [n_vocab, n_embd],
+    "ln_f": {"b": [n_embd], "g": [n_embd]},
+    "blocks": [
+        {
+            "attn": {
+                "c_attn": {"b": [3*n_embd], "w": [n_embd, 3*n_embd]},
+                "c_proj": {"b": [n_embd], "w": [n_embd, n_embd]},
+            },
+            "ln_1": {"b": [n_embd], "g": [n_embd]},
+            "ln_2": {"b": [n_embd], "g": [n_embd]},
+            "mlp": {
+                "c_fc": {"b": [4*n_embd], "w": [n_embd, 4*n_embd]},
+                "c_proj": {"b": [n_embd], "w": [4*n_embd, n_embd]},
+            },
+        },
+        ... # repeat for n_layers
+    ]
+}
+```
+
+この辞書を参照して、GPT を実装する際に重みの形状を確認するために、後で戻ってくることがおそらく必要になるでしょう。コード内の変数名は、この辞書のキーと一致させるために一貫性を持たせます。
+
+## 基本レイヤー
+
+実際の GPT アーキテクチャに入る前に、GPT に固有ではない、いくつかの基本的なニューラルネットワークのレイヤーを実装しましょう。
+
+### GELU
+
+GPT-2 での非線形（**活性化関数**）の選択肢は、ReLU の代替として[GELU（Gaussian Error Linear Units）](https://arxiv.org/pdf/1606.08415.pdf)です：
+
+![](https://super-translator.inaridiy.workers.dev/assets/image/d729588c-7f3c-42ba-a212-d062bbc392d4)
+
+以下の関数で近似されます：
+
+```py
+def gelu(x):
+    return 0.5 * x * (1 + np.tanh(np.sqrt(2 / np.pi) * (x + 0.044715 * x**3)))
+```
+
+ReLU と同様に、GELU は入力に対して要素ごとに操作を行います：
+
+```py
+>>> gelu(np.array([[1, 2], [-2, 0.5]]))
+array([[ 0.84119,  1.9546 ],
+       [-0.0454 ,  0.34571]])
+```
+
+### ソフトマックス関数
+
+古き良き[ソフトマックス関数](https://ja.wikipedia.org/wiki/%E3%82%BD%E3%83%95%E3%83%88%E3%83%9E%E3%83%83%E3%82%AF%E3%82%B9%E9%96%A2%E6%95%B0)です:
+
+$$
+\text{softmax}(x)_i = \frac{e^{x_i}}{\sum_j e^{x_j}}
+$$
+
+数値の安定性のために[`max(x)`のトリック](https://jaykmody.com/blog/stable-softmax/)を使用します。
+
+ソフトマックス関数は、実数の集合（$- \infty$から$\infty$の間）を確率（0 から 1 の間で、合計が 1 になる数）に変換するために使用されます。入力の最後の軸に`softmax`を適用します。
+
+```py
+>>> x = softmax(np.array([[2, 100], [-5, 0]]))
+>>> x
+array([[0.00034, 0.99966],
+       [0.26894, 0.73106]])
+>>> x.sum(axis=-1)
+array([1., 1.])
+```
+
+### レイヤー正規化
+
+[レイヤー正規化](https://arxiv.org/pdf/1607.06450.pdf)は、平均を 0、分散を 1 に標準化します：
+
+$$
+\text{LayerNorm}(x) = \gamma \cdot \frac{x - \mu}{\sqrt{\sigma^2}} + \beta
+$$
+
+ここで、$\mu$は$x$の平均、$\sigma^2$は$x$の分散であり、$\gamma$と$\beta$は学習可能なパラメータです。
+
+```python
+def layer_norm(x, g, b, eps: float = 1e-5):
+    mean = np.mean(x, axis=-1, keepdims=True)
+    variance = np.var(x, axis=-1, keepdims=True)
+    x = (x - mean) / np.sqrt(variance + eps)  # 最後の軸において平均=0、分散=1になるようにxを正規化
+    return g * x + b  # gamma/betaパラメータでスケールとオフセットを行う
+```
+
+レイヤーノーマリゼーションは、各層の入力が常に一貫した範囲内にあることを保証し、これによりトレーニングプロセスの加速と安定化が期待されます。[バッチノーマリゼーション](https://arxiv.org/pdf/1502.03167.pdf)と同様に、正規化された出力は、学習可能な 2 つのベクトル gamma と beta でスケールされオフセットされます。分母の小さな epsilon 項はゼロ除算エラーを避けるために使用されます。
+
+Transformer ではバッチノーマリゼーションの代わりにレイヤーノーマリゼーションが使用されます。その[さまざまな理由](https://stats.stackexchange.com/questions/474440/why-do-transformers-use-layer-norm-instead-of-batch-norm)については、[この素晴らしいブログ投稿](https://tungmphung.com/deep-learning-normalization-methods/)で概説されています。
+
+入力の最後の軸に対してレイヤーノーマリゼーションを適用します。
+
+```py
+>>> x = np.array([[2, 2, 3], [-5, 0, 1]])
+>>> x = layer_norm(x, g=np.ones(x.shape[-1]), b=np.zeros(x.shape[-1]))
+>>> x
+array([[-0.70709, -0.70709,  1.41418],
+       [-1.397  ,  0.508  ,  0.889  ]])
+>>> x.var(axis=-1)
+array([0.99996, 1.     ]) # 浮動小数点のやりとり
+>>> x.mean(axis=-1)
+array([-0., -0.])
+```
+
+### 線形
+
+標準的な行列乗算 + バイアス：
+
+```py
+def linear(x, w, b):  # [m, in], [in, out], [out] -> [m, out]
+    return x @ w + b
+```
+
+線形層は、しばしば**投影**と呼ばれます（それらが一つのベクトル空間から別のベクトル空間へ投影しているため）。
+
+```py
+>>> x = np.random.normal(size=(64, 784)) # 入力次元 = 784, バッチ/シーケンス次元 = 64
+>>> w = np.random.normal(size=(784, 10)) # 出力次元 = 10
+>>> b = np.random.normal(size=(10,))
+>>> x.shape # 線形投影前の形状
+(64, 784)
+>>> linear(x, w, b).shape # 線形投影後の形状
+(64, 10)
+```
+
+## GPT アーキテクチャ
+
+---
+
+GPT アーキテクチャは、[Transformer](https://arxiv.org/pdf/1706.03762.pdf)に従います：
+
+![Attention is All You Needからの図1](https://machinelearningmastery.com/wp-content/uploads/2021/08/attention_research_1.png)
+
+しかし、デコーダスタックのみを使用しています（図の右側）：
+
+![GPTアーキテクチャ](https://i.imgur.com/c4Z6PG8.png)
+
+注記：エンコーダを排除したため、中央の「クロスアテンション」層も削除されています。
+
+高いレベルで、GPT アーキテクチャは 3 つのセクションを持っています：
+
+- テキスト + 位置 **エンベッディング**
+- Transformer **デコーダスタック**
+- **語彙への投影** ステップ
+
+コードでは、このようになります：
+
+```python
+def gpt2(inputs, wte, wpe, blocks, ln_f, n_head):  # [n_seq] -> [n_seq, n_vocab]
+    # token + positional embeddings
+    x = wte[inputs] + wpe[range(len(inputs))]  # [n_seq] -> [n_seq, n_embd]
+
+    # forward pass through n_layer transformer blocks
+    for block in blocks:
+        x = transformer_block(x, **block, n_head=n_head)  # [n_seq, n_embd] -> [n_seq, n_embd]
+
+    # projection to vocab
+    x = layer_norm(x, **ln_f)  # [n_seq, n_embd] -> [n_seq, n_embd]
+    return x @ wte.T  # [n_seq, n_embd] -> [n_seq, n_vocab]
+```
+
+この 3 つのセクションをそれぞれ詳しく説明します。
+
+### 埋め込み
+
+#### トークンの埋め込み
+
+トークン ID 自体は、ニューラルネットワークにとって非常に良い表現ではありません。一つには、トークン ID の相対的な大きさが誤った情報を伝えてしまうことです（例えば、私たちの語彙で`Apple = 5`、`Table = 10`の場合、`2 * Table = Apple`を暗示しています）。また、単一の数値は、ニューラルネットワークが扱うには*次元性*が十分ではありません。
+
+これらの制限に対処するため、[単語ベクトル](https://jaykmody.com/blog/attention-intuition/#word-vectors-and-similarity)を利用しますが、特に学習された埋め込み行列を介して行います：
+
+```python
+wte[inputs] # [n_seq] -> [n_seq, n_embd]
+```
+
+`wte`は`[n_vocab, n_embd]`行列であることを思い出してください。これはルックアップテーブルとして機能し、行列の$i$番目の行は私たちの語彙の$i$番目のトークンに対する学習されたベクトルに対応します。`wte[inputs]`は[整数配列インデックス](https://numpy.org/doc/stable/user/basics.indexing.html#integer-array-indexing)を使用して、入力の各トークンに対応するベクトルを取得します。
+
+`wte`はネットワークの他のパラメータと同様に学習されます。つまり、トレーニングの開始時にランダムに初期化され、その後勾配降下法を通じて更新されます。
+
+### 位置埋め込み
+
+Transformer アーキテクチャの特徴の一つは、位置を考慮しないことです。つまり、入力をランダムにシャッフルし、その後出力を適切にアンシャッフルした場合、入力を一切シャッフルしなかった場合と同じ出力になります（入力の順序は出力に影響を与えません）。
+
+Transformer アーキテクチャの特徴の一つは、位置を考慮しないことです。つまり、入力をランダムにシャッフルし、その後出力を適切にアンシャッフルした場合、入力を一切シャッフルしなかった場合と同じ出力になります（入力の順序は出力に影響を与えません）。
+
+もちろん、言語の重要な部分は単語の順序です（当然ですが）、したがって、入力に位置情報をエンコードする方法が必要です。これには、別の学習された埋め込み行列を使用できます：
+
+```python
+wpe[range(len(inputs))] # [n_seq] -> [n_seq, n_embd]
+```
+
+`wpe`は`[n_ctx, n_embd]`行列であることを思い出してください。行列の$i$番目の行には、入力の$i$番目の位置に関する情報をエンコードするベクトルが含まれています。`wte`と同様に、この行列は勾配降下中に学習されます。
+
+注意点として、これはモデルを最大シーケンス長`n_ctx`に制限します[^4]。つまり、`len(inputs) <= n_ctx`が成立しなければなりません。
+
+### 組み合わせ
+
+トークンと位置の埋め込みを加算することで、トークンと位置情報の両方をエンコードする組み合わせ埋め込みを得ることができます。
+
+```python
+# token + positional embeddings
+x = wte[inputs] + wpe[range(len(inputs))]  # [n_seq] -> [n_seq, n_embd]
+
+# x[i] represents the word embedding for the ith word + the positional
+# embedding for the ith position
+```
+
+### デコーダスタック
+
+ここで全ての魔法が起こり、「ディープ」がディープラーニングに入ってきます。埋め込みを`n_layer`の Transformer デコーダブロックのスタックを通して渡します。
+
+```python
+# forward pass through n_layer transformer blocks
+for block in blocks:
+    x = transformer_block(x, **block, n_head=n_head)  # [n_seq, n_embd] -> [n_seq, n_embd]
+```
+
+より多くの層を積み重ねることで、ネットワークがどれだけ「深い」かを制御することができます。例えば、GPT-3 は[驚異的な 96 層](https://preview.redd.it/n9fgba8b0qr01.png?auto=webp&s=e86d2d3447c777d3222016e81a0adfaec1a95592)を持っています。一方で、より大きな`n_embd`値を選択することで、ネットワークがどれだけ「幅広い」かを制御することができます（例えば、GPT-3 は埋め込みサイズに 12288 を使用しています）。
+
+### 語彙への投影
+
+最終ステップでは、最後の Transformer ブロックの出力を、語彙上の確率分布へ投影します：
+
+```python
+# 語彙への投影
+x = layer_norm(x, **ln_f)  # [n_seq, n_embd] -> [n_seq, n_embd]
+return x @ wte.T  # [n_seq, n_embd] -> [n_seq, n_vocab]
+```
+
+ここで注目すべきいくつかのことがあります：
+
+1. `x`を**最終層の正規化**レイヤーを通してから、語彙への投影を行います。これは GPT-2 アーキテクチャに特有のものであり、元の GPT および Transformer の論文には存在しません。
+2. 投影のために埋め込み行列`wte`を**再利用**しています。他の GPT 実装では、投影用に別の学習済み重み行列を使用するかもしれませんが、埋め込み行列を共有することにはいくつかの利点があります：
+   - パラメータを節約できます（GPT-3 のスケールでは、これは無視できるかもしれませんが）。
+   - この行列が単語へのマッピングと単語からのマッピングの両方を担当するため、理論的には、2 つの別々の行列を持つ場合と比較して、より豊かな表現を学習する可能性があります。
+3. 最後に`softmax`を**適用しない**ため、出力は 0 から 1 の間の確率ではなく[ロジット](https://developers.google.com/machine-learning/glossary/#logits)になります。これにはいくつかの理由があります：
+   - `softmax`は[単調関数](https://en.wikipedia.org/wiki/Monotonic_function)であるため、貪欲サンプリングにおいて`np.argmax(logits)`は`np.argmax(softmax(logits))`と等価であり、`softmax`は冗長です。
+   - `softmax`は不可逆であり、`logits`から`確率`には`softmax`を適用して変換できますが、`確率`から`logits`に戻すことはできないため、最大限の柔軟性を得るために`logits`を出力します。
+   - 数値的安定性のため（例えば、交差エントロピー損失を計算する際に、`log(softmax(logits))`は`log_softmax(logits)`と比較して数値的に不安定です）。
+
+語彙への投影ステップは、**言語モデリングヘッド**とも呼ばれることがあります。"ヘッド"とは何を意味するのでしょうか？GPT が事前トレーニングされた後、言語モデリングヘッドを何らかの分類タスクのための**分類ヘッド**など、他の種類の投影に交換することができます。したがって、モデルは[ヒドラ](https://en.wikipedia.org/wiki/Lernaean_Hydra)のように、複数のヘッドを持つことができます。
+
+これが高いレベルでの GPT アーキテクチャですが、実際にデコーダブロックが何をしているのかもう少し深く掘り下げてみましょう。
+
+### デコーダブロック
+
+Transformer デコーダブロックは、2 つのサブレイヤーで構成されます：
+
+1. マルチヘッド因果的自己注意
+2. 位置ごとのフィードフォワードニューラルネットワーク
+
+```python
+def transformer_block(x, mlp, attn, ln_1, ln_2, n_head):  # [n_seq, n_embd] -> [n_seq, n_embd]
+    # マルチヘッド因果的自己注意
+    x = x + mha(layer_norm(x, **ln_1), **attn, n_head=n_head)  # [n_seq, n_embd] -> [n_seq, n_embd]
+
+    # 位置ごとのフィードフォワードネットワーク
+    x = x + ffn(layer_norm(x, **ln_2), **mlp)  # [n_seq, n_embd] -> [n_seq, n_embd]
+
+    return x
+```
+
+各サブレイヤーは、入力にレイヤー正規化を利用し、残差接続（つまり、サブレイヤーの入力をサブレイヤーの出力に加算する）を使用します。
+
+注意すべき点：
+
+1. **マルチヘッド因果自己注意**は、入力間の通信を容易にします。ネットワーク内の他のどこでも、モデルが入力同士を「見る」ことを許可しているわけではありません。エンベッディング、位置ごとのフィードフォワードネットワーク、レイヤーノーム、および語彙への投影はすべて、入力に対して位置ごとに操作します。入力間の関係のモデリングは、注意にのみ任されています。
+2. **位置ごとのフィードフォワードニューラルネットワーク**は、ただの通常の 2 層全結合ニューラルネットワークです。これにより、学習を容易にするための多くの学習可能なパラメータがモデルに追加されます。
+3. 元の Transformer 論文では、レイヤーノームは出力`layer_norm(x + sublayer(x))`に配置されますが、GPT-2 に合わせて入力にレイヤーノームを配置します`x + sublayer(layer_norm(x))`。これは**プレノーム**と呼ばれ、[Transformer のパフォーマンスを向上させる上で重要であることが示されています](https://arxiv.org/pdf/2002.04745.pdf)。
+4. **残差接続**（[ResNet](https://arxiv.org/pdf/1512.03385.pdf)によって普及）はいくつかの異なる目的を果たします：
+   1. 深い（つまり、多くの層を持つ）ニューラルネットワークを最適化しやすくします。ここでのアイデアは、グラディエントがネットワークを通って後方に流れる「ショートカット」を提供し、ネットワークの初期層を最適化しやすくすることです。
+   2. 残差接続がないと、より多くの層を追加するときに深いモデルのパフォーマンスが低下します（おそらく、深いネットワークを通じてグラディエントが全て戻るのが難しく、情報を失うため）。残差接続は、より深いネットワークに少しの正確性向上をもたらすようです。
+   3. [勾配消失/勾配爆発問題](https://programmathically.com/understanding-the-exploding-and-vanishing-gradients-problem/)に対処するのに役立ちます。
+
+2 つのサブレイヤーにもう少し深く掘り下げましょう。
+
+### 位置ごとのフィードフォワードネットワーク
+
+これは単なる 2 層のマルチレイヤーパーセプトロンです：
+
+```python
+def ffn(x, c_fc, c_proj):  # [n_seq, n_embd] -> [n_seq, n_embd]
+    # アップへのプロジェクト
+    a = gelu(linear(x, **c_fc))  # [n_seq, n_embd] -> [n_seq, 4*n_embd]
+
+    # ダウンへのプロジェクト
+    x = linear(a, **c_proj)  # [n_seq, 4*n_embd] -> [n_seq, n_embd]
+
+    return x
+```
+
+ここには特に凝ったことはありません。`n_embd`からより高い次元`4*n_embd`へプロジェクトし、その後`n_embd`へと戻します。[^5]
+
+`params`辞書から、`mlp`パラメータが以下のようになっていることを思い出してください：
+
+```python
+
+"mlp": {
+    "c_fc": {"b": [4*n_embd], "w": [n_embd, 4*n_embd]},
+    "c_proj": {"b": [n_embd], "w": [4*n_embd, n_embd]},
+}
+```
+
+### マルチヘッド因果自己注意
+
+このレイヤーは、Transformer の中で最も理解しにくい部分かもしれません。そこで、「マルチヘッド因果自己注意」を各単語に分解して説明することで、この概念を理解しやすくしましょう：
+
+1. 注意（Attention）
+2. 自己（Self）
+3. 因果（Causal）
+4. マルチヘッド（Multi-Head）
+
+#### 注意（Attention）
+
+このトピックについては、[別のブログ記事](https://jaykmody.com/blog/attention-intuition/)を書いています。そこでは、[元の Transformer 論文](https://arxiv.org/pdf/1706.03762.pdf)で提案されたスケールドドットプロダクト方程式を一から導き出しています：
+$$\text{attention}(Q, K, V) = \text{softmax}(\frac{QK^T}{\sqrt{d_k}})V$$したがって、この投稿では注意に関する説明は省略します。[Lilian Weng の Attention? Attention!](https://lilianweng.github.io/posts/2018-06-24-attention/)や[Jay Alammar の The Illustrated Transformer](https://jalammar.github.io/visualizing-neural-machine-translation-mechanics-of-seq2seq-models-with-attention/)も、注意に関する素晴らしい説明です。
+
+私のブログ記事から注意実装を適応させましょう：
+
+```python
+def attention(q, k, v):  # [n_q, d_k], [n_k, d_k], [n_k, d_v] -> [n_q, d_v]
+    return softmax(q @ k.T / np.sqrt(q.shape[-1])) @ v
+```
+
+#### 自己（Self）
+
+`q`、`k`、`v`がすべて同じソースから来る場合、[自己注意](https://lilianweng.github.io/posts/2018-06-24-attention/#self-attention)を実行しています（つまり、入力シーケンスを自身に対して注意させる）：
+
+```python
+def self_attention(x): # [n_seq, n_embd] -> [n_seq, n_embd]
+    return attention(q=x, k=x, v=x)
+```
+
+例えば、入力が`"Jay went to the store, he bought 10 apples."`である場合、「he」が「Jay」を含む他のすべての単語に注意を払うことになり、モデルが「he」が「Jay」を指していることを認識できるようになります。
+
+`q`、`k`、`v`および注意出力のための投影を導入することで、自己注意を強化できます：
+
+```python
+def self_attention(x, w_k, w_q, w_v, w_proj): # [n_seq, n_embd] -> [n_seq, n_embd]
+    # qkvの投影
+    q = x @ w_k # [n_seq, n_embd] @ [n_embd, n_embd] -> [n_seq, n_embd]
+    k = x @ w_q # [n_seq, n_embd] @ [n_embd, n_embd] -> [n_seq, n_embd]
+    v = x @ w_v # [n_seq, n_embd] @ [n_embd, n_embd] -> [n_seq, n_embd]
+
+    # 自己注意の実行
+    x = attention(q, k, v) # [n_seq, n_embd] -> [n_seq, n_embd]
+
+    # 出力の投影
+    x = x @ w_proj # [n_seq, n_embd] @ [n_embd, n_embd] -> [n_seq, n_embd]
+
+    return x
+```
+
+これにより、モデルは`q`、`k`、`v`に最適なマッピングを学習でき、入力間の関係を区別するのに役立ちます。
+
+`w_q`、`w_k`、`w_v`を単一の行列`w_fc`に組み合わせ、投影を実行し、その結果を分割することで、行列乗算の数を 4 から 2 に減らすことができます：
+
+```python
+def self_attention(x, w_fc, w_proj): # [n_seq, n_embd] -> [n_seq, n_embd]
+    # qkvの投影
+    x = x @ w_fc # [n_seq, n_embd] @ [n_embd, 3*n_embd] -> [n_seq, 3*n_embd]
+
+    # qkvに分割
+    q, k, v = np.split(x, 3, axis=-1) # [n_seq, 3*n_embd] -> 3 of [n_seq, n_embd]
+
+    # 自己注意の実行
+    x = attention(q, k, v) # [n_seq, n_embd] -> [n_seq, n_embd]
+
+    # 出力の投影
+    x = x @ w_proj # [n_seq, n_embd] @ [n_embd, n_embd] = [n_seq, n_embd]
+
+    return x
+```
+
+これは、現代のアクセラレータ（GPU）が、連続して発生する 3 つの小さな行列乗算よりも 1 つの大きな行列乗算をより有効に利用できるため、少し効率的です。
+
+最後に、GPT-2 の実装に合わせてバイアスベクトルを追加し、`linear`関数を使用し、`params`辞書に合わせてパラメータの名前を変更します：
+
+```python
+def self_attention(x, c_attn, c_proj): # [n_seq, n_embd] -> [n_seq, n_embd]
+    # qkvの投影
+    x = linear(x, **c_attn) # [n_seq, n_embd] -> [n_seq, 3*n_embd]
+
+    # qkvに分割
+    q, k, v = np.split(x, 3, axis=-1) # [n_seq, 3*n_embd] -> 3 of [n_seq, n_embd]
+
+    # 自己注意の実行
+    x = attention(q, k, v) # [n_seq, n_embd] -> [n_seq, n_embd]
+
+    # 出力の投影
+    x = linear(x, **c_proj) # [n_seq, n_embd] @ [n_embd, n_embd] = [n_seq, n_embd]
+
+    return x
+```
+
+`params`辞書から、`attn`パラメータが以下のようになっていることを思い出してください：
+
+```python
+"attn": {
+    "c_attn": {"b": [3*n_embd], "w": [n_embd, 3*n_embd]},
+    "c_proj": {"b": [n_embd], "w": [n_embd, n_embd]},
+},
+
+```
+
+#### 因果（Causal）
+
+現在の自己注意の設定には少し問題があります。入力が未来を見ることができてしまいます！例えば、入力が`["not", "all", "heroes", "wear", "capes"]`の場合、自己注意を行う際に「wear」が「capes」を見ることを許可しています。これは、「wear」の出力確率が、モデルが正解が「capes」であることをすでに知っているために偏ってしまうことを意味します。これはよくありません。なぜなら、モデルは入力$i$の正解を入力$i+1$から取得できることを学習するだけになってしまうからです。
+
+これを防ぐために、注意行列を何らかの方法で修正し、入力が未来を見ることができないように*隠す*または**マスク**する必要があります。例えば、注意行列が以下のようになっているとしましょう：
+
+```
+       not    all    heroes wear   capes
+   not 0.116  0.     0.     0.     0.
+   all 0.180  0.397  0.     0.     0.
+heroes 0.156  0.453  0.028  0.     0.
+  wear 0.499  0.055  0.133  0.017  0.
+ capes 0.089  0.290  0.240  0.228  0.153
+```
+
+各行はクエリに対応し、列はキーに対応します。この場合、「wear」の行を見ると、最後の列の「capes」に 0.295 の重みで注意を払っていることがわかります。これを防ぐために、そのエントリを`0.0`に設定したいです：
+
+```
+      not    all    heroes wear   capes
+   not 0.116  0.159  0.055  0.226  0.443
+   all 0.180  0.397  0.142  0.106  0.175
+heroes 0.156  0.453  0.028  0.129  0.234
+  wear 0.499  0.055  0.133  0.017  0.
+ capes 0.089  0.290  0.240  0.228  0.153
+```
+
+一般に、入力のすべてのクエリが未来を見ることを防ぐために、$j > i$であるすべての位置$i, j$を`0`に設定します：
+
+```
+       not    all    heroes wear   capes
+   not 0.116  0.     0.     0.     0.
+   all 0.180  0.397  0.     0.     0.
+heroes 0.156  0.453  0.028  0.     0.
+  wear 0.499  0.055  0.133  0.017  0.
+ capes 0.089  0.290  0.240  0.228  0.153
+```
+
+これを**マスキング**と呼びます。上記のマスキングアプローチの問題は、`softmax`が適用された後に 0 に設定しているため、行の合計が 1 にならなくなることです。行が依然として 1 になるようにするためには、`softmax`が適用される前に注意行列を修正する必要があります。
+
+これは、マスクされるべきエントリを`softmax`の前に$-\infty$に設定することで達成できます[^6]：
+
+```python
+def attention(q, k, v, mask):  # [n_q, d_k], [n_k, d_k], [n_k, d_v], [n_q, n_k] -> [n_q, d_v]
+    return softmax(q @ k.T / np.sqrt(q.shape[-1]) + mask) @ v
+```
+
+ここで`mask`は行列（`n_seq=5`の場合）：
+
+```
+0 -1e10 -1e10 -1e10 -1e10
+0   0   -1e10 -1e10 -1e10
+0   0     0   -1e10 -1e10
+0   0     0     0   -1e10
+0   0     0     0     0
+```
+
+`-np.inf`の代わりに`-1e10`を使用するのは、`-np.inf`が`nans`を引き起こす可能性があるためです。
+
+`mask`を注意行列に追加するのは、実際には、`-inf`にどんな数を加えても結局`-inf`になるため、単に値を`-1e10`に設定するのと同じ効果があります。
+
+NumPy で`mask`行列を計算するには、`(1 - np.tri(n_seq)) * -1e10`を使用します。
+
+これをすべてまとめると、以下のようになります：
+
+```python
+def attention(q, k, v, mask):  # [n_q, d_k], [n_k, d_k], [n_k, d_v], [n_q, n_k] -> [n_q, d_v]
+    return softmax(q @ k.T / np.sqrt(q.shape[-1]) + mask) @ v
+
+def causal_self_attention(x, c_attn, c_proj): # [n_seq, n_embd] -> [n_seq, n_embd]
+    # qkv projections
+    x = linear(x, **c_attn) # [n_seq, n_embd] -> [n_seq, 3*n_embd]
+
+    # split into qkv
+    q, k, v = np.split(x, 3, axis=-1) # [n_seq, 3*n_embd] -> 3 of [n_seq, n_embd]
+
+    # causal mask to hide future inputs from being attended to
+    causal_mask = (1 - np.tri(x.shape[0]), dtype=x.dtype) * -1e10  # [n_seq, n_seq]
+
+    # perform causal self attention
+    x = attention(q, k, v, causal_mask) # [n_seq, n_embd] -> [n_seq, n_embd]
+
+    # out projection
+    x = linear(x, **c_proj) # [n_seq, n_embd] @ [n_embd, n_embd] = [n_seq, n_embd]
+
+    return x
+```
+
+#### マルチヘッド
+
+`n_head`個の別々の注意計算を実行し、クエリ、キー、値を**ヘッド**に分割することで、実装をさらに改善できます：
+
+````python
+```python
+def mha(x, c_attn, c_proj, n_head):  # [n_seq, n_embd] -> [n_seq, n_embd]
+    # qkvの投影
+    x = linear(x, **c_attn)  # [n_seq, n_embd] -> [n_seq, 3*n_embd]
+
+    # qkvに分割
+    qkv = np.split(x, 3, axis=-1)  # [n_seq, 3*n_embd] -> [3, n_seq, n_embd]
+
+    # ヘッドに分割
+    qkv_heads = list(map(lambda x: np.split(x, n_head, axis=-1), qkv))  # [3, n_seq, n_embd] -> [3, n_head, n_seq, n_embd/n_head]
+
+    # 未来の入力を見ることができないように因果マスクを適用
+    causal_mask = (1 - np.tri(x.shape[0]), dtype=x.dtype) * -1e10  # [n_seq, n_seq]
+
+    # 各ヘッドで注意を実行
+    out_heads = [attention(q, k, v, causal_mask) for q, k, v in zip(*qkv_heads)]  # [3, n_head, n_seq, n_embd/n_head] -> [n_head, n_seq, n_embd/n_head]
+
+    # ヘッドを結合
+    x = np.hstack(out_heads)  # [n_head, n_seq, n_embd/n_head] -> [n_seq, n_embd]
+
+    # 出力の投影
+    x = linear(x, **c_proj)  # [n_seq, n_embd] -> [n_seq, n_embd]
+
+    return x
+````
+
+ここには 3 つのステップが追加されています：
+
+1. `q`, `k`, `v`を`n_head`個のヘッドに分割します：
+
+```python
+# ヘッドに分割
+qkv_heads = list(map(lambda x: np.split(x, n_head, axis=-1), qkv))  # [3, n_seq, n_embd] -> [n_head, 3, n_seq, n_embd/n_head]
+```
+
+2. 各ヘッドに対して注意を計算します：
+
+```python
+# 各ヘッドで注意を実行
+out_heads = [attention(q, k, v) for q, k, v in zip(*qkv_heads)]  # [n_head, 3, n_seq, n_embd/n_head] -> [n_head, n_seq, n_embd/n_head]
+```
+
+3. 各ヘッドの出力を結合します：
+
+```python
+# ヘッドを結合
+x = np.hstack(out_heads)  # [n_head, n_seq, n_embd/n_head] -> [n_seq, n_embd]
+```
+
+これにより、`n_embd`から`n_embd/n_head`に次元が減少します。これはトレードオフです。次元が減少した代わりに、モデルは注意を通じて関係をモデリングする際に、追加の*部分空間*を利用できるようになります。たとえば、ある注意ヘッドが代名詞を参照している人物に接続する責任があるかもしれません。別のものは、文をピリオドでグループ化する責任があるかもしれません。また、どの単語がエンティティであり、どれがそうでないかを単純に識別するかもしれません。それでも、おそらくそれは単なる別のニューラルネットワークのブラックボックスです。
+
+書いたコードは、ループ内で各ヘッドの注意計算を順番に（一度に 1 つ）実行していますが、これは非常に効率的ではありません。実際には、これらを並列で実行したいところです。簡単のために、このシーケンシャルなままにしておきます。
+
+これで、GPT の実装がようやく終わりました！あとは、すべてをまとめてコードを実行するだけです。
+
+## すべてをまとめる
+
+すべてをまとめると、[gpt2.py](https://github.com/jaymody/picoGPT/blob/main/gpt2.py)が完成します。これは全体でわずか 120 行のコードです（コメントと空白を削除すると 60 行です）。
+
+以下のコマンドで実装をテストできます：
+
+```bash
+python gpt2.py \
+    "Alan Turing theorized that computers would one day become" \
+    --n_tokens_to_generate 8
+```
+
+これにより、出力は以下のようになります：
+
+```
+the most powerful machines on the planet.
+```
+
+うまくいきました！
+
+次の[Dockerfile](https://gist.github.com/jaymody/9054ca64eeea7fad1b58a185696bb518)を使用して、実装が[OpenAI の公式 GPT-2 リポジトリ](https://github.com/openai/gpt-2)と同一の結果を出すことをテストできます（注：tensorflow の問題と、すべての 4 つの GPT-2 モデルサイズをダウンロードすることになるため、M1 Macbook では動作しません。ダウンロードするものが多いため、警告が出ます）：
+
+これにより、同一の結果が得られるはずです：
+
+```bash
+the most powerful machines on the planet.
+```
+
+## 次はなんですか？
+
+この実装はクールですが、たくさんの機能が欠けています:
+
+### GPU/TPU サポート
+
+NumPy を [JAX](https://github.com/google/jax): に置き換えます：
+
+```py
+import jax.numpy as np
+```
+
+これで、コードを GPU や TPU で使えるようになります！ただし、JAX を正しくインストールすることを確認してください。
+
+### 逆伝播
+
+再び、NumPy を [JAX](https://github.com/google/jax): に置き換える場合：
+
+```py
+import jax.numpy as np
+```
+
+次に、勾配を計算することは非常に簡単です：
+
+```py
+def lm_loss(params, inputs, n_head) -> float:
+    x, y = inputs[:-1], inputs[1:]
+    output = gpt2(x, **params, n_head=n_head)
+    loss = np.mean(-np.log(output[y]))
+    return loss
+
+grads = jax.grad(lm_loss)(params, inputs, n_head)
+```
+
+### バッチ処理
+
+再び、NumPy を [JAX](https://github.com/google/jax) に置き換える場合[^7]：
+
+```py
+import jax.numpy as np
+```
+
+その後 `gpt2`関数をバッチ処理することは非常に簡単です：
+
+```py
+gpt2_batched = jax.vmap(gpt2, in_axes=[0, None, None, None, None, None])
+gpt2_batched(batched_inputs) # [batch, seq_len] -> [batch, seq_len, vocab]
+```
+
+### 推論最適化
+
+実装はかなり非効率です。GPU とバッチ処理のサポートを除いて、最も迅速かつ大きな影響を与える最適化は、[kv キャッシュ](https://kipp.ly/blog/transformer-inference-arithmetic/#kv-cache)の実装でしょう。また、注意ヘッドの計算を逐次的に実装しましたが、実際には並行して行うべきです[^8]。
+
+推論の最適化はまだまだ多くあります。[Lillian Weng の大規模 Transformer モデル推論最適化](https://lilianweng.github.io/posts/2023-01-10-inference-optimization/)と[Kipply の Transformer 推論算術](https://kipp.ly/blog/transformer-inference-arithmetic/)を出発点として推奨します。
+
+### トレーニング
+
+GPT のトレーニングは、ニューラルネットワークにとってはかなり標準的なプロセスです（損失関数に関する勾配降下法を使用）。もちろん、GPT のトレーニングには、標準的なテクニック群を使用する必要があります（例えば、Adam オプティマイザーを使用、最適な学習率を見つける、ドロップアウトや重み減衰による正則化、学習率スケジューラーの使用、適切な重みの初期化、バッチ処理など）。
+
+良い GPT モデルをトレーニングする実際の秘訣は、**データとモデルのスケーリング**に能力を持つことであり、これが真の挑戦です。
+
+データのスケーリングでは、大規模で高品質、そして多様なテキストコーパスが必要です。
+
+- 大規模とは、数十億のトークン（テラバイトのデータ）を意味します。例えば、大規模言語モデルのためのオープンソースの事前学習データセットである[The Pile](https://pile.eleuther.ai)を確認してください。
+- 高品質とは、重複する例のフィルタリング、未フォーマットテキスト、非論理的なテキスト、ゴミテキストなどを除外したいということです。
+- 多様性とは、さまざまなトピックについて、異なるソースから、異なる視点で、シーケンス長が異なるテキストを意味します。もちろん、データに偏りがある場合、それはモデルに反映されるため、注意が必要です。
+
+数十億のパラメーターを持つモデルのスケーリングには、大量のエンジニアリング（そしてお金笑）が関わっています。トレーニングフレームワークは[非常に長く複雑になることがあります](https://github.com/NVIDIA/Megatron-LM)。始めるには、[Lillian Weng's How to Train Really Large Models on Many GPUs](https://lilianweng.github.io/posts/2021-09-25-train-large/)が良い出発点です。このトピックに関連するものとしては、[NVIDIA's Megatron Framework](https://arxiv.org/pdf/1909.08053.pdf)、[Cohere's Training Framework](https://arxiv.org/pdf/2204.06514.pdf)、[Google's PALM](https://arxiv.org/pdf/2204.02311.pdf)、オープンソースの[mesh-transformer-jax](https://github.com/kingoflolz/mesh-transformer-jax)（EleutherAI のオープンソースモデルのトレーニングに使用されています）、そして[他にも多く](https://arxiv.org/pdf/2203.15556.pdf) [多くの研究](https://www.microsoft.com/en-us/research/blog/turing-nlg-a-17-billion-parameter-language-model-by-microsoft/) [があります](https://arxiv.org/pdf/2005.14165.pdf)。
+
+### ファインチューニング
+
+トレーニングセクションでファインチューニングについて簡単に触れました。ファインチューニングとは、事前にトレーニングされた重みを再利用して、ある下流タスクでモデルをトレーニングすることを指します。このプロセスをトランスファーラーニングと呼びます。
+
+理論的には、ゼロショットやフューショットのプロンプティングを使用してタスクを完了させることができますが、ラベル付きデータセットにアクセスできる場合、GPT をファインチューニングすることでより良い結果（追加データと高品質データを考慮したスケールの結果）が得られます。
+
+ファインチューニングに関連するいくつかの異なるトピックがあります。以下に分けて説明します：
+
+#### クラス分類ファインチューニング
+
+クラス分類ファインチューニングでは、モデルにテキストを与え、それがどのクラスに属するかを予測させます。例えば、映画のレビューが良いか悪いかを評価する[IMDB データセット](https://huggingface.co/datasets/imdb)を考えてみましょう：
+
+```text
+--- 例 1 ---
+テキスト: I wouldn't rent this one even on dollar rental night.
+ラベル: 悪い
+--- 例 2 ---
+テキスト: I don't know why I like this movie so well, but I never get tired of watching it.
+ラベル: 良い
+--- 例 3 ---
+...
+```
+
+モデルをファインチューニングするために、言語モデリングのヘッドを分類ヘッドに置き換え、最後のトークン出力に適用します：
+
+```py
+def gpt2(inputs, wte, wpe, blocks, ln_f, cls_head, n_head):
+    x = wte[inputs] + wpe[range(len(inputs))]
+    for block in blocks:
+        x = transformer_block(x, **block, n_head=n_head)
+    x = layer_norm(x, **ln_f)
+
+	# n_classesにプロジェクト
+	# [n_embd] @ [n_embd, n_classes] -> [n_classes]
+    return x[-1] @ cls_head
+```
+
+言語モデリングの場合とは異なり、`n_seq`の分布ではなく、入力全体に対して単一の確率分布を生成するだけでよいため、最後のトークン出力`x[-1]`のみを使用します。特に最後のトークンを使用する理由は、最後のトークンのみが全シーケンスに注目を許され、入力テキスト全体についての情報を持っているからです。
+
+通常どおり、交差エントロピー損失に対して最適化を行います：
+
+```py
+def singe_example_loss_fn(inputs: list[int], label: int, params) -> float:
+    logits = gpt(inputs, **params)
+    probs = softmax(logits)
+    loss = -np.log(probs[label]) # 交差エントロピー損失
+    return loss
+```
+
+また、`sigmoid`を`softmax`の代わりに適用し、各クラスに対して二項交差エントロピー損失を取ることで、**マルチラベル分類**（つまり、例が単一のクラスにのみ属するのではなく、**複数**のクラスに属することができる）も行うことができます（[この stack-exchange の質問](https://stats.stackexchange.com/questions/207794/what-loss-function-for-multi-class-multi-label-classification-tasks-in-neural-n)を参照）。
+
+#### 生成型ファインチューニング
+
+一部のタスクは、クラスにきれいに分類することができません。たとえば、要約のタスクを考えてみましょう。このタイプのタスクをファインチューニングするには、入力とラベルを連結して言語モデリングを行うだけです。以下は、単一の要約トレーニングサンプルがどのように見えるかの例です：
+
+```text
+--- 記事 ---
+これは私が要約したい記事です。
+--- 要約 ---
+これが要約です。
+```
+
+我々は、事前トレーニング中と同様にモデルをトレーニングします（言語モデリング損失に関して最適化します）。
+
+予測時には、モデルに`--- 要約 ---`までのすべてをフィードし、自動回帰言語モデリングを実行して要約を生成します。
+
+区切り文字`--- 記事 ---`と`--- 要約 ---`の選択は任意です。トレーニングと推論の間で一貫性がある限り、テキストのフォーマット方法は自由です。
+
+なお、分類タスクも生成タスクとして定式化することが可能です（例えば IMDB で）：
+
+```text
+--- テキスト ---
+I wouldn't rent this one even on dollar rental night.
+--- ラベル ---
+悪い
+```
+
+しかし、これは直接分類ファインチューニングを行うよりも性能が低下する可能性があります（損失には最終予測だけでなく、全シーケンスにわたる言語モデリングが含まれるため、予測に特化した損失が薄れる可能性があります）。
+
+#### インストラクションファインチューニング
+
+最近の最先端の大規模言語モデルは、事前トレーニング後に追加の**インストラクションファインチューニング**ステップを経るものが多いです。このステップでは、モデルは数千のインストラクションプロンプト+完了ペアについて、**人間によるラベリング**が行われたデータでファインチューニング（生成的）されます。インストラクションファインチューニングは、データが人間によってラベル付けされている（つまり**監視されている**）ため、**監視されたファインチューニング**とも呼ばれます。
+
+では、インストラクションファインチューニングの利点は何でしょうか？Wikipedia の記事で次の単語を予測することはモデルが文を続けるのが得意になることを意味しますが、それだけでは特に指示に従ったり、会話をしたり、文書を要約したり（私たちが GPT にしてほしいことすべて）するのが得意になるわけではありません。人間によるラベル付けされたインストラクション+完了ペアでファインチューニングすることは、モデルがどのように役立つか、そしてそれらとのやり取りを容易にする方法を教える方法です。これを**AI アライメント**と呼びます。私たちがそれにしてほしいこと、振る舞ってほしい方法にモデルを整列させているからです。アライメントは活発な研究領域であり、指示に従うことだけでなく（バイアス、安全性、意図など）を含みます。
+
+このインストラクションデータは具体的にどのようなものでしょうか？Google の[FLAN](https://arxiv.org/pdf/2109.01652.pdf)モデルは、すでに人間によってラベル付けされたさまざまな学術 NLP データセットでトレーニングされました：
+
+![FLAN論文の図3](https://i.imgur.com/9W2bwJF.png)
+
+一方、OpenAI の[InstructGPT](https://arxiv.org/pdf/2203.02155.pdf)は、自社の API から収集したプロンプトでトレーニングされました。その後、それらのプロンプトに対して完了を書くように作業者に支払いました。データの内訳は以下の通りです：
+
+![InstructGPT論文の表1と2](https://i.imgur.com/FaRRbCa.png)
+
+#### パラメータ効率の良いファインチューニング
+
+上記のセクションでファインチューニングについて話すとき、全てのモデルパラメータを更新していると仮定しています。これは最高のパフォーマンスを生み出しますが、計算コスト（全モデルにわたってバックプロパゲーションが必要）とストレージコスト（ファインチューンされた各モデルに対して、完全に新しいパラメータのコピーを保存する必要がある）の両方においてコストがかかります。
+
+この問題に対する最も単純なアプローチは、**ヘッドのみを更新**し、残りのモデルを**凍結**（つまり、トレーニング不可能にする）することです。これによりトレーニングが速くなり、新しいパラメータの数が大幅に減少しますが、ディープラーニングの「ディープ」を失ってしまうため、特に良いパフォーマンスは得られません。代わりに特定の層を**選択的に凍結**する（例えば、最後の 4 層以外の全層を凍結、または隔層ごとに凍結、またはマルチヘッドアテンションパラメータ以外の全パラメータを凍結）ことで、深さを復元することができます。この結果、パフォーマンスは大幅に向上しますが、パラメータ効率が低下し、トレーニング速度の向上の一部を失ってしまいます。
+
+代わりに、**パラメータ効率の良いファインチューニング**メソッドを利用することができます。これは現在も活発に研究されている分野で、[多くの](https://aclanthology.org/2021.emnlp-main.243.pdf) [異なる](https://arxiv.org/pdf/2110.07602.pdf) [方法](https://arxiv.org/pdf/2101.00190.pdf) [が](https://arxiv.org/pdf/2103.10385.pdf) [選択](https://arxiv.org/pdf/2106.09685.pdf) [可能](https://arxiv.org/pdf/1902.00751.pdf) [です](https://arxiv.org/abs/2205.05638)。
+
+例として、[Adapters 論文](https://arxiv.org/pdf/1902.00751.pdf)を取り上げます。このアプローチでは、Transformer ブロックの FFN と MHA 層の後に追加の「アダプター」層を追加します。アダプター層は、入力と出力の次元が`n_embd`で、隠れ層の次元が`n_embd`より小さい、単純な 2 層全結合ニューラルネットワークです：
+
+![Adapters論文からの図2](https://miro.medium.com/max/633/0*Z2FMWTCmdkgevHr-.png)
+
+隠れた次元のサイズは、パラメータとパフォーマンスのトレードオフを可能にするハイパーパラメータです。BERT モデルにおいて、このアプローチを使用することで、訓練されたパラメータの数を 2%に減少させることができ、フルファインチューニングと比較してわずかなパフォーマンスの低下（\<1%）を維持しながらも、と論文で示されています。
+
+[^1]: 訓練を大規模に行い、テラバイト単位のデータを収集し、モデルを高速化し、パフォーマンスを評価し、モデルを人間に役立つように調整することは、現在の LLM（大規模言語モデル）を形作るために必要な数百人のエンジニア/研究者の生涯の仕事です。それは単にアーキテクチャだけではありません。GPT アーキテクチャはたまたま、スケーリング特性が良く、GPU 上で高度に並列化可能で、シーケンスをモデリングするのに適しているという、最初のニューラルネットワークアーキテクチャでした。実際の秘密のソースは、[いつものように](http://www.incompleteideas.net/IncIdeas/BitterLesson.html)データとモデルをスケーリングすることから来ます。GPT は私たちがそれを行うことを可能にするだけです[^9]。Transformer が[ハードウェアの宝くじ](https://hardwarelottery.github.io/)に当たった可能性があり、他のアーキテクチャがまだそこに存在し、Transformer の地位を奪うことを待っているかもしれません。
+[^2]: 特定のアプリケーションでは、トークナイザーにデコード方法は必要ありません。たとえば、映画のレビューが映画を良いものと言っているか悪いものと言っているかを分類したい場合、テキストをエンコードしてモデルのフォワードパスを行うことができれば十分で、デコードは必要ありません。しかし、テキストを生成する場合は、デコードが必要です。
+[^3]: もちろん、このすべてのデータから学ぶには、十分に大きなモデルが必要です。これが、GPT-3 が 1750 億のパラメータを持ち、トレーニングには約 100 万ドルから 1000 万ドルの計算コストがかかったと推定される理由です。ただし、[InstructGPT](https://arxiv.org/pdf/2210.11416.pdf) と [Chinchilla](https://arxiv.org/pdf/2203.15556.pdf) の論文でわかったことは、実際にはそれほど大きなモデルをトレーニングする必要がないということです。最適にトレーニングされ、命令に微調整された 13 億パラメータの GPT は、1750 億パラメータの GPT-3 を上回る性能を発揮することができます。
+[^4]: 元の Transformer 論文では、[計算された位置埋め込み](https://nlp.seas.harvard.edu/2018/04/03/attention.html#positional-encoding)を使用しました。これは学習された位置埋め込みと同じくらいうまく機能することがわかっていますが、任意の長さのシーケンスを入力できるという明確な利点があります（最大シーケンス長に制限されません）。しかし、実際には、モデルの性能は訓練されたシーケンスの長さにのみ良くなります。1024 トークンの長さで GPT を訓練し、それが 16k トークンの長さでうまく機能すると期待することはできません。しかし最近、[Alibi](https://arxiv.org/pdf/2108.12409.pdf)や[RoPE](https://arxiv.org/pdf/2104.09864v4.pdf)のような相対位置埋め込みによる成功がいくつか報告されています。
+[^5]: 異なる GPT モデルは、`4*n_embd`でない異なる隠れ層の幅を選択することもありますが、これは GPT モデルにおける一般的な慣習です。また、Transformer の成功を牽引するために多頭部注意層に多くの*注意*（言葉遊びを意図）を払いますが、GPT-3 のスケールでは、[モデルパラメータの 80%がフィードフォワード層に含まれています](https://twitter.com/stephenroller/status/1579993017234382849)。考えてみるべきことです。
+[^6]:
+    納得できない場合は、softmax の方程式をじっと見て、これが真実であることを自分自身に納得させてください（場合によってはペンと紙を取り出して）：
+
+    $$
+    \text{softmax}(\vec{x})_i=\frac{e^{x_i}}{\sum_je^{x_j}}
+    $$
+
+[^7]: I love JAX ❤️.
+[^8]: JAX を使用すると、これは `heads = jax.vmap(attention, in_axes=(0, 0, 0, None))(q, k, v, causal_mask)` として簡単に行えます。
+[^9]: 実際、注意モデルがシーケンスをモデル化する方法は、再帰的/畳み込み層と比較して本質的に優れていると主張するかもしれませんが、今私たちは脚注内の脚注の中にいますので、ここで話を戻しましょう。
