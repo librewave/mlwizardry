@@ -655,8 +655,6 @@ wte[inputs] # [n_seq] -> [n_seq, n_embd]
 
 Transformer アーキテクチャの特徴の一つは、位置を考慮しないことです。つまり、入力をランダムにシャッフルし、その後出力を適切にアンシャッフルした場合、入力を一切シャッフルしなかった場合と同じ出力になります（入力の順序は出力に影響を与えません）。
 
-Transformer アーキテクチャの特徴の一つは、位置を考慮しないことです。つまり、入力をランダムにシャッフルし、その後出力を適切にアンシャッフルした場合、入力を一切シャッフルしなかった場合と同じ出力になります（入力の順序は出力に影響を与えません）。
-
 もちろん、言語の重要な部分は単語の順序です（当然ですが）、したがって、入力に位置情報をエンコードする方法が必要です。これには、別の学習された埋め込み行列を使用できます：
 
 ```python
@@ -786,7 +784,7 @@ def ffn(x, c_fc, c_proj):  # [n_seq, n_embd] -> [n_seq, n_embd]
 #### 注意（Attention）
 
 このトピックについては、[別のブログ記事](https://jaykmody.com/blog/attention-intuition/)を書いています。そこでは、[元の Transformer 論文](https://arxiv.org/pdf/1706.03762.pdf)で提案されたスケールドドットプロダクト方程式を一から導き出しています：
-$$\text{attention}(Q, K, V) = \text{softmax}(\frac{QK^T}{\sqrt{d_k}})V$$したがって、この投稿では注意に関する説明は省略します。[Lilian Weng 氏の Attention? Attention!](https://lilianweng.github.io/posts/2018-06-24-attention/)や[Jay Alammar の The Illustrated Transformer](https://jalammar.github.io/visualizing-neural-machine-translation-mechanics-of-seq2seq-models-with-attention/)も、注意に関する素晴らしい説明です。
+$$\text{attention}(Q, K, V) = \text{softmax}(\frac{QK^T}{\sqrt{d_k}})V$$したがって、この投稿では注意に関する説明は省略します。[Lilian Weng 氏の Attention? Attention!](https://lilianweng.github.io/posts/2018-06-24-attention/)や[Jay Alammar 氏 の The Illustrated Transformer](https://jalammar.github.io/visualizing-neural-machine-translation-mechanics-of-seq2seq-models-with-attention/)も、注意に関する素晴らしい説明です。
 
 私のブログ記事から注意実装を適応させましょう：
 
