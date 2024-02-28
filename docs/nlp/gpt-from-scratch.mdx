@@ -1117,6 +1117,72 @@ GPT のトレーニングは、ニューラルネットワークにとっては�
 
 数十億のパラメーターを持つモデルのスケーリングには、大量のエンジニアリング（そしてお金笑）が関わっています。トレーニングフレームワークは[非常に長く複雑になることがあります](https://github.com/NVIDIA/Megatron-LM)。始めるには、[Lillian Weng 氏の How to Train Really Large Models on Many GPUs](https://lilianweng.github.io/posts/2021-09-25-train-large/)が良い出発点です。このトピックに関連するものとしては、[NVIDIA の Megatron Framework](https://arxiv.org/pdf/1909.08053.pdf)、[Cohere の Training Framework](https://arxiv.org/pdf/2204.06514.pdf)、[Google の PALM](https://arxiv.org/pdf/2204.02311.pdf)、オープンソースの[mesh-transformer-jax](https://github.com/kingoflolz/mesh-transformer-jax)（EleutherAI のオープンソースモデルのトレーニングに使用されています）、そして[他にも多く](https://arxiv.org/pdf/2203.15556.pdf) [多くの研究](https://www.microsoft.com/en-us/research/blog/turing-nlg-a-17-billion-parameter-language-model-by-microsoft/) [があります](https://arxiv.org/pdf/2005.14165.pdf)。
 
+### 評価
+
+なかなか難しい問題ですが、LLM の評価方法についてはどのように進めればよいでしょうか。正直なところ、非常に難しい問題です。[HELM](https://arxiv.org/abs/2211.09110)は非常に包括的で、始めるにあたって良い参考資料ですが、[ベンチマークと評価指標](https://en.wikipedia.org/wiki/Goodhart%27s_law)については常に懐疑的であるべきです。
+
+### アーキテクチャの改善
+
+[Phil Wang の X-Transformer](https://github.com/lucidrains/x-transformers)に目を通されることをお勧めします。トランスフォーマーアーキテクチャに関する最新の研究が含まれています。[この論文](https://arxiv.org/pdf/2102.11972.pdf)もかなり良い要約です（表 1 を参照）。Facebook の最近の[LLaMA 論文](https://arxiv.org/pdf/2302.13971.pdf)も、2023 年 2 月時点での標準的なアーキテクチャ改善に関する良い参考資料でしょう。
+
+### 生成の停止
+
+現在の実装では、事前に生成したいトークンの正確な数を指定する必要があります。これはあまり良いアプローチではなく、生成される文が長すぎたり、短すぎたり、文の途中で切れたりします。
+
+これを解決するために、特別な**文末 (EOS) トークン**を導入することができます。事前学習中には、EOS トークンを入力の末尾に追加します（例：`tokens = ["not", "all", "heroes", "wear", "capes", ".", ""]`）。生成時には、EOS トークンに遭遇した場合（または最大シーケンス長に達した場合）に停止します：
+
+```python
+def generate(inputs, eos_id, max_seq_len):
+    prompt_len = len(inputs)
+    while inputs[-1] != eos_id and len(inputs) < max_seq_len:
+        output = gpt(inputs)
+        next_id = np.argmax(output[-1])
+        inputs.append(int(next_id))
+    return inputs[prompt_len:]
+```
+
+GPT-2 は EOS トークンを事前学習していないので、このアプローチを私たちのコードで使用することはできませんが、現在のほとんどの LLM は EOS トークンを使用しています。
+
+### 条件なし生成
+
+### 無条件生成
+
+私たちのモデルでテキストを生成するには、プロンプトでそれを**条件付け**する必要があります。しかし、モデルに任意の入力プロンプトなしでテキストを生成させる、**無条件生成**も可能です。
+
+これは、事前学習中に入力の開始に特別な**文の始まり（BOS）トークン**を前置することによって達成されます（つまり、`tokens = ["", "not", "all", "heroes", "wear", "capes", "."]`）。次に、無条件にテキストを生成するために、BOS トークンだけを含むリストを入力します：
+
+```python
+def generate_unconditioned(bos_id, n_tokens_to_generate):
+	inputs = [bos_id]
+    for _ in range(n_tokens_to_generate):
+        output = gpt(inputs)
+        next_id = np.argmax(output[-1])
+        inputs.append(int(next_id))
+    return inputs[1:]
+```
+
+GPT-2 は、混乱しやすい名前の BOS トークン(``)で事前学習されているため、私たちの実装で無条件生成を行うのは、[次の行](https://github.com/jaymody/picoGPT/blob/dfb5df895a7a6b18705866a0bf7ec04947d8e05a/gpt2.py#L104)を変更するだけで非常に簡単です。
+
+```python
+input_ids = encoder.encode(prompt) if prompt else [encoder.encoder[""]]
+```
+
+そして、以下を実行します：
+
+```python
+python gpt2.py ""
+```
+
+これにより、以下が生成されます：
+
+```
+The first time I saw the new version of the game, I was so excited. I was so excited to see the new version of the game, I was so excited to see the new version
+```
+
+私たちが貪欲サンプリングを使用しているため、出力はあまり良くない（繰り返しが多い）ということになり、決定論的です（つまり、コードを実行するたびに同じ出力が得られます）。より高品質で非決定論的な生成物を得るには、分布から直接サンプリングする必要があります（理想的には top-p のようなものを適用した後）。
+
+無条件生成は特に有用ではありませんが、GPT の能力を示す楽しい方法です。
+
 ### ファインチューニング
 
 トレーニングセクションでファインチューニングについて簡単に触れました。ファインチューニングとは、事前にトレーニングされた重みを再利用して、ある下流タスクでモデルをトレーニングすることを指します。このプロセスをトランスファーラーニングと呼びます。
