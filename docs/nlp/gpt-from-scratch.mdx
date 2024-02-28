@@ -768,7 +768,6 @@ def ffn(x, c_fc, c_proj):  # [n_seq, n_embd] -> [n_seq, n_embd]
 `params`辞書から、`mlp`パラメータが以下のようになっていることを思い出してください：
 
 ```python
-
 "mlp": {
     "c_fc": {"b": [4*n_embd], "w": [n_embd, 4*n_embd]},
     "c_proj": {"b": [n_embd], "w": [4*n_embd, n_embd]},
@@ -787,7 +786,7 @@ def ffn(x, c_fc, c_proj):  # [n_seq, n_embd] -> [n_seq, n_embd]
 #### 注意（Attention）
 
 このトピックについては、[別のブログ記事](https://jaykmody.com/blog/attention-intuition/)を書いています。そこでは、[元の Transformer 論文](https://arxiv.org/pdf/1706.03762.pdf)で提案されたスケールドドットプロダクト方程式を一から導き出しています：
-$$\text{attention}(Q, K, V) = \text{softmax}(\frac{QK^T}{\sqrt{d_k}})V$$したがって、この投稿では注意に関する説明は省略します。[Lilian Weng の Attention? Attention!](https://lilianweng.github.io/posts/2018-06-24-attention/)や[Jay Alammar の The Illustrated Transformer](https://jalammar.github.io/visualizing-neural-machine-translation-mechanics-of-seq2seq-models-with-attention/)も、注意に関する素晴らしい説明です。
+$$\text{attention}(Q, K, V) = \text{softmax}(\frac{QK^T}{\sqrt{d_k}})V$$したがって、この投稿では注意に関する説明は省略します。[Lilian Weng 氏の Attention? Attention!](https://lilianweng.github.io/posts/2018-06-24-attention/)や[Jay Alammar の The Illustrated Transformer](https://jalammar.github.io/visualizing-neural-machine-translation-mechanics-of-seq2seq-models-with-attention/)も、注意に関する素晴らしい説明です。
 
 私のブログ記事から注意実装を適応させましょう：
 
@@ -968,7 +967,6 @@ def causal_self_attention(x, c_attn, c_proj): # [n_seq, n_embd] -> [n_seq, n_emb
 
 `n_head`個の別々の注意計算を実行し、クエリ、キー、値を**ヘッド**に分割することで、実装をさらに改善できます：
 
-````python
 ```python
 def mha(x, c_attn, c_proj, n_head):  # [n_seq, n_embd] -> [n_seq, n_embd]
     # qkvの投影
@@ -993,7 +991,7 @@ def mha(x, c_attn, c_proj, n_head):  # [n_seq, n_embd] -> [n_seq, n_embd]
     x = linear(x, **c_proj)  # [n_seq, n_embd] -> [n_seq, n_embd]
 
     return x
-````
+```
 
 ここには 3 つのステップが追加されています：
 
@@ -1060,7 +1058,7 @@ the most powerful machines on the planet.
 
 NumPy を [JAX](https://github.com/google/jax): に置き換えます：
 
-```py
+```python
 import jax.numpy as np
 ```
 
@@ -1068,15 +1066,15 @@ import jax.numpy as np
 
 ### 逆伝播
 
-再び、NumPy を [JAX](https://github.com/google/jax): に置き換える場合：
+再び、NumPy を[JAX](https://github.com/google/jax)に置き換える場合：
 
-```py
+```python
 import jax.numpy as np
 ```
 
 次に、勾配を計算することは非常に簡単です：
 
-```py
+```python
 def lm_loss(params, inputs, n_head) -> float:
     x, y = inputs[:-1], inputs[1:]
     output = gpt2(x, **params, n_head=n_head)
@@ -1090,13 +1088,13 @@ grads = jax.grad(lm_loss)(params, inputs, n_head)
 
 再び、NumPy を [JAX](https://github.com/google/jax) に置き換える場合[^7]：
 
-```py
+```python
 import jax.numpy as np
 ```
 
 その後 `gpt2`関数をバッチ処理することは非常に簡単です：
 
-```py
+```python
 gpt2_batched = jax.vmap(gpt2, in_axes=[0, None, None, None, None, None])
 gpt2_batched(batched_inputs) # [batch, seq_len] -> [batch, seq_len, vocab]
 ```
@@ -1119,7 +1117,7 @@ GPT のトレーニングは、ニューラルネットワークにとっては�
 - 高品質とは、重複する例のフィルタリング、未フォーマットテキスト、非論理的なテキスト、ゴミテキストなどを除外したいということです。
 - 多様性とは、さまざまなトピックについて、異なるソースから、異なる視点で、シーケンス長が異なるテキストを意味します。もちろん、データに偏りがある場合、それはモデルに反映されるため、注意が必要です。
 
-数十億のパラメーターを持つモデルのスケーリングには、大量のエンジニアリング（そしてお金笑）が関わっています。トレーニングフレームワークは[非常に長く複雑になることがあります](https://github.com/NVIDIA/Megatron-LM)。始めるには、[Lillian Weng's How to Train Really Large Models on Many GPUs](https://lilianweng.github.io/posts/2021-09-25-train-large/)が良い出発点です。このトピックに関連するものとしては、[NVIDIA's Megatron Framework](https://arxiv.org/pdf/1909.08053.pdf)、[Cohere's Training Framework](https://arxiv.org/pdf/2204.06514.pdf)、[Google's PALM](https://arxiv.org/pdf/2204.02311.pdf)、オープンソースの[mesh-transformer-jax](https://github.com/kingoflolz/mesh-transformer-jax)（EleutherAI のオープンソースモデルのトレーニングに使用されています）、そして[他にも多く](https://arxiv.org/pdf/2203.15556.pdf) [多くの研究](https://www.microsoft.com/en-us/research/blog/turing-nlg-a-17-billion-parameter-language-model-by-microsoft/) [があります](https://arxiv.org/pdf/2005.14165.pdf)。
+数十億のパラメーターを持つモデルのスケーリングには、大量のエンジニアリング（そしてお金笑）が関わっています。トレーニングフレームワークは[非常に長く複雑になることがあります](https://github.com/NVIDIA/Megatron-LM)。始めるには、[Lillian Weng 氏の How to Train Really Large Models on Many GPUs](https://lilianweng.github.io/posts/2021-09-25-train-large/)が良い出発点です。このトピックに関連するものとしては、[NVIDIA の Megatron Framework](https://arxiv.org/pdf/1909.08053.pdf)、[Cohere の Training Framework](https://arxiv.org/pdf/2204.06514.pdf)、[Google の PALM](https://arxiv.org/pdf/2204.02311.pdf)、オープンソースの[mesh-transformer-jax](https://github.com/kingoflolz/mesh-transformer-jax)（EleutherAI のオープンソースモデルのトレーニングに使用されています）、そして[他にも多く](https://arxiv.org/pdf/2203.15556.pdf) [多くの研究](https://www.microsoft.com/en-us/research/blog/turing-nlg-a-17-billion-parameter-language-model-by-microsoft/) [があります](https://arxiv.org/pdf/2005.14165.pdf)。
 
 ### ファインチューニング
 
@@ -1146,7 +1144,7 @@ GPT のトレーニングは、ニューラルネットワークにとっては�
 
 モデルをファインチューニングするために、言語モデリングのヘッドを分類ヘッドに置き換え、最後のトークン出力に適用します：
 
-```py
+```python
 def gpt2(inputs, wte, wpe, blocks, ln_f, cls_head, n_head):
     x = wte[inputs] + wpe[range(len(inputs))]
     for block in blocks:
@@ -1162,7 +1160,7 @@ def gpt2(inputs, wte, wpe, blocks, ln_f, cls_head, n_head):
 
 通常どおり、交差エントロピー損失に対して最適化を行います：
 
-```py
+```python
 def singe_example_loss_fn(inputs: list[int], label: int, params) -> float:
     logits = gpt(inputs, **params)
     probs = softmax(logits)
