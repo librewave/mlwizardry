@@ -939,24 +939,24 @@ NumPy で`mask`行列を計算するには、`(1 - np.tri(n_seq)) * -1e10`を使
 これをすべてまとめると、以下のようになります：
 
 ```python
-def attention(q, k, v, mask):  # [n_q, d_k], [n_k, d_k], [n_k, d_v], [n_q, n_k] -> [n_q, d_v]
-    return softmax(q @ k.T / np.sqrt(q.shape[-1]) + mask) @ v
+def attention(q, k, v, mask):  # q, k, v はそれぞれクエリ、キー、バリューを表し、mask は注意を適用する範囲を制御します。戻り値は注意後の出力です。
+    return softmax(q @ k.T / np.sqrt(q.shape[-1]) + mask) @ v  # スケール済みドット積注意を計算し、適用します。
 
-def causal_self_attention(x, c_attn, c_proj): # [n_seq, n_embd] -> [n_seq, n_embd]
-    # qkv projections
-    x = linear(x, **c_attn) # [n_seq, n_embd] -> [n_seq, 3*n_embd]
+def causal_self_attention(x, c_attn, c_proj):  # x は入力シーケンス、c_attn と c_proj はそれぞれ注意と出力投影のための設定を含む。
+    # qkv 投影
+    x = linear(x, **c_attn)  # 入力を線形変換して、q, k, v のための3倍の次元を持つベクトルにします。
 
-    # split into qkv
-    q, k, v = np.split(x, 3, axis=-1) # [n_seq, 3*n_embd] -> 3 of [n_seq, n_embd]
+    # qkv に分割
+    q, k, v = np.split(x, 3, axis=-1)  # 上記のベクトルを q, k, v に分割します。
 
-    # causal mask to hide future inputs from being attended to
-    causal_mask = (1 - np.tri(x.shape[0]), dtype=x.dtype) * -1e10  # [n_seq, n_seq]
+    # 未来の入力を隠すための因果マスク
+    causal_mask = (1 - np.tri(x.shape[0]), dtype=x.dtype) * -1e10  # 自己注意で将来の情報が現れないようにするマスクを作成します。
 
-    # perform causal self attention
-    x = attention(q, k, v, causal_mask) # [n_seq, n_embd] -> [n_seq, n_embd]
+    # 因果的自己注意を実行
+    x = attention(q, k, v, causal_mask)  # 因果的自己注意を適用します。
 
-    # out projection
-    x = linear(x, **c_proj) # [n_seq, n_embd] @ [n_embd, n_embd] = [n_seq, n_embd]
+    # 出力投影
+    x = linear(x, **c_proj)  # 注意後の出力を再び線形変換して最終的な出力を得ます。
 
     return x
 ```
