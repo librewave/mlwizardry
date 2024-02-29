@@ -1054,7 +1054,7 @@ the most powerful machines on the planet.
 
 ### GPU/TPU サポート
 
-NumPy を [JAX](https://github.com/google/jax): に置き換えます：
+NumPy を [JAX](https://github.com/google/jax)に置き換えます：
 
 ```python
 import jax.numpy as np
@@ -1101,7 +1101,7 @@ gpt2_batched(batched_inputs) # [batch, seq_len] -> [batch, seq_len, vocab]
 
 実装はかなり非効率です。GPU とバッチ処理のサポートを除いて、最も迅速かつ大きな影響を与える最適化は、[kv キャッシュ](https://kipp.ly/blog/transformer-inference-arithmetic/#kv-cache)の実装でしょう。また、注意ヘッドの計算を逐次的に実装しましたが、実際には並行して行うべきです[^8]。
 
-推論の最適化はまだまだ多くあります。[Lillian Weng の大規模 Transformer モデル推論最適化](https://lilianweng.github.io/posts/2023-01-10-inference-optimization/)と[Kipply の Transformer 推論算術](https://kipp.ly/blog/transformer-inference-arithmetic/)を出発点として推奨します。
+推論の最適化はまだまだ多くあります。[Lillian Weng 氏の大規模 Transformer モデル推論最適化](https://lilianweng.github.io/posts/2023-01-10-inference-optimization/)と[Kipply 氏の Transformer 推論算術](https://kipp.ly/blog/transformer-inference-arithmetic/)を出発点として推奨します。
 
 ### トレーニング
 
@@ -1123,7 +1123,7 @@ GPT のトレーニングは、ニューラルネットワークにとっては�
 
 ### アーキテクチャの改善
 
-[Phil Wang 氏の X-Transformer](https://github.com/lucidrains/x-transformers)に目を通されることをお勧めします。トランスフォーマーアーキテクチャに関する最新の研究が含まれています。[この論文](https://arxiv.org/pdf/2102.11972.pdf)もかなり良い要約です（表 1 を参照）。Facebook の最近の[LLaMA 論文](https://arxiv.org/pdf/2302.13971.pdf)も、2023 年 2 月時点での標準的なアーキテクチャ改善に関する良い参考資料でしょう。
+[Phil Wang 氏の X-Transformer](https://github.com/lucidrains/x-transformers)に目を通されることをお勧めします。Transformer ーアーキテクチャに関する最新の研究が含まれています。[この論文](https://arxiv.org/pdf/2102.11972.pdf)もかなり良い要約です（表 1 を参照）。Facebook の最近の[LLaMA 論文](https://arxiv.org/pdf/2302.13971.pdf)も、2023 年 2 月時点での標準的なアーキテクチャ改善に関する良い参考資料でしょう。
 
 ### 生成の停止
 
